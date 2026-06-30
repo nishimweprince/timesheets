@@ -14,25 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import Modal from "@/components/reusable/cards/Modal"
+import Combobox from "@/components/reusable/inputs/Combobox"
+import Select from "@/components/reusable/inputs/Select"
 import { DataTable } from "@/components/reusable/tables"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
+import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
   createAssignment,
   createInstance,
@@ -62,6 +51,11 @@ function formatDate(iso: string) {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+}
+
+function employeeName(employee: { firstName: string; lastName: string; email: string }) {
+  const name = `${employee.firstName} ${employee.lastName}`.trim()
+  return name || employee.email
 }
 
 // --- badge styles ---
@@ -236,16 +230,11 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 rounded-none text-xs">
-          New Template
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-sm font-medium">New shift template</DialogTitle>
-        </DialogHeader>
+    <>
+      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+        New Template
+      </Button>
+      <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift template" className="sm:min-w-0 sm:max-w-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Name</Label>
@@ -279,14 +268,14 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
               />
             </div>
           </div>
-          <DialogFooter>
+          <div className="flex justify-end">
             <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
               {isLoading ? "Creating…" : "Create template"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   )
 }
 
@@ -299,6 +288,13 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
   const [templateId, setTemplateId] = React.useState<string | undefined>(undefined)
   const [startAt, setStartAt] = React.useState("")
   const [endAt, setEndAt] = React.useState("")
+  const templateOptions = React.useMemo(
+    () => [
+      { label: "No template", value: "none" },
+      ...templates.map((template) => ({ label: template.name, value: template.id })),
+    ],
+    [templates],
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -321,37 +317,21 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 rounded-none text-xs">
-          New Shift
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-sm font-medium">New shift</DialogTitle>
-        </DialogHeader>
+    <>
+      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+        New Shift
+      </Button>
+      <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift" className="sm:min-w-0 sm:max-w-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {templates.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Template (optional)</Label>
-              <Select
-                value={templateId ?? "none"}
-                onValueChange={(v) => setTemplateId(v === "none" ? undefined : v)}
-              >
-                <SelectTrigger className="h-9 rounded-none text-sm">
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No template</SelectItem>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              label="Template (optional)"
+              labelClassName="text-xs"
+              className="h-9 text-sm"
+              value={templateId ?? "none"}
+              options={templateOptions}
+              onChange={(v) => setTemplateId(v === "none" ? undefined : v)}
+            />
           )}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Start</Label>
@@ -373,20 +353,21 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
               className="h-9 rounded-none text-sm"
             />
           </div>
-          <DialogFooter>
+          <div className="flex justify-end">
             <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
               {isLoading ? "Creating…" : "Create shift"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   )
 }
 
 function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   const dispatch = useAppDispatch()
   const instances = useAppSelector((s) => s.scheduling.instances)
+  const employees = useAppSelector((s) => s.employeeManagement.employees)
   const isLoading = useAppSelector((s) => s.scheduling.status.assign === "loading")
 
   const [open, setOpen] = React.useState(false)
@@ -397,6 +378,26 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
     () => instances.filter((i) => i.status === ShiftInstanceStatus.SCHEDULED),
     [instances]
   )
+  const shiftOptions = React.useMemo(
+    () =>
+      scheduledInstances.map((instance) => ({
+        label: `${formatDate(instance.startAt)} ${formatTime(instance.startAt)} – ${formatTime(instance.endAt)}`,
+        value: instance.id,
+      })),
+    [scheduledInstances],
+  )
+  const employeeOptions = React.useMemo(
+    () =>
+      employees.map((employee) => ({
+        label: `${employeeName(employee)} · ${employee.email}`,
+        value: employee.membershipId,
+      })),
+    [employees],
+  )
+
+  React.useEffect(() => {
+    if (open && employees.length === 0) dispatch(fetchEmployees())
+  }, [dispatch, employees.length, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -412,32 +413,23 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 rounded-none text-xs">
-          Assign Employee
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-sm font-medium">Assign employee to shift</DialogTitle>
-        </DialogHeader>
+    <>
+      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+        Assign Employee
+      </Button>
+      <Modal isOpen={open} onClose={() => setOpen(false)} heading="Assign employee to shift" className="sm:min-w-0 sm:max-w-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Shift instance</Label>
             {scheduledInstances.length > 0 ? (
-              <Select value={shiftInstanceId} onValueChange={setShiftInstanceId}>
-                <SelectTrigger className="h-9 rounded-none text-sm">
-                  <SelectValue placeholder="Select a shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scheduledInstances.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {formatDate(i.startAt)} {formatTime(i.startAt)} – {formatTime(i.endAt)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={shiftInstanceId}
+                onChange={setShiftInstanceId}
+                options={shiftOptions}
+                placeholder="Select a shift"
+                searchPlaceholder="Search shifts"
+                className="h-9 text-sm"
+              />
             ) : (
               <Input
                 required
@@ -450,15 +442,26 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Employee membership ID</Label>
-            <Input
-              required
-              placeholder="Employee membership ID"
-              value={employeeMembershipId}
-              onChange={(e) => setEmployeeMembershipId(e.target.value)}
-              className="h-9 rounded-none text-sm font-mono"
-            />
+            {employeeOptions.length > 0 ? (
+              <Combobox
+                value={employeeMembershipId}
+                onChange={setEmployeeMembershipId}
+                options={employeeOptions}
+                placeholder="Select an employee"
+                searchPlaceholder="Search employees"
+                className="h-9 text-sm"
+              />
+            ) : (
+              <Input
+                required
+                placeholder="Employee membership ID"
+                value={employeeMembershipId}
+                onChange={(e) => setEmployeeMembershipId(e.target.value)}
+                className="h-9 rounded-none text-sm font-mono"
+              />
+            )}
           </div>
-          <DialogFooter>
+          <div className="flex justify-end">
             <Button
               type="submit"
               size="sm"
@@ -467,10 +470,10 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
             >
               {isLoading ? "Assigning…" : "Assign"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   )
 }
 

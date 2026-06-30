@@ -66,7 +66,6 @@ const columns: ColumnDef<RecentEntry>[] = [
         {row.original.status}
       </span>
     ),
-    meta: { align: "right", width: "8rem" },
   },
 ]
 

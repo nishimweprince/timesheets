@@ -11,24 +11,11 @@ import { DataTable } from "@/components/reusable/tables"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import Modal from "@/components/reusable/cards/Modal"
+import Combobox from "@/components/reusable/inputs/Combobox"
+import Select from "@/components/reusable/inputs/Select"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { showApiErrorToast } from "@/lib/api/errors"
 import { MembershipStatus, type Employee, type Team as TeamRecord } from "@/lib/api/employee-management.api"
@@ -45,6 +32,12 @@ import {
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 
 const roleOptions = ["Employee", "Manager", "Auditor", "Organization Admin"]
+const roleSelectOptions = roleOptions.map((role) => ({ label: role, value: role }))
+const statusOptions = [
+  { label: "Pending", value: MembershipStatus.PENDING },
+  { label: "Active", value: MembershipStatus.ACTIVE },
+  { label: "Inactive", value: MembershipStatus.INACTIVE },
+]
 
 type Tab = "employees" | "teams"
 
@@ -79,6 +72,16 @@ function invitationLabel(employee: Employee) {
 
 function teamNames(employee: Employee) {
   return employee.teams.length > 0 ? employee.teams.map((team) => team.name).join(", ") : "-"
+}
+
+function employeeOptions(employees: Pick<Employee, "membershipId" | "firstName" | "lastName" | "email">[]) {
+  return [
+    { label: "No manager", value: "none" },
+    ...employees.map((employee) => ({
+      label: `${employeeName(employee)} · ${employee.email}`,
+      value: employee.membershipId,
+    })),
+  ]
 }
 
 function emptyEmployeeForm(): EmployeeFormState {
@@ -187,7 +190,7 @@ function TeamPage() {
           <span className={cn("inline-flex h-6 items-center border px-2 text-xs uppercase", statusClass(row.original.status))}>
             {row.original.status.toLowerCase()}
           </span>
-          <span className="text-[11px] text-muted-foreground">{invitationLabel(row.original)}</span>
+         {row?.original?.invitation?.status ? <span className="text-[11px] text-muted-foreground">{invitationLabel(row.original)}</span> : null}
         </div>
       ),
       meta: { align: "right", width: "8rem" },
@@ -437,31 +440,31 @@ function InviteEmployeeDialog({ employees, teams }: { employees: Employee[]; tea
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      setOpen(nextOpen)
-      if (!nextOpen) reset()
-    }}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <MailIcon data-icon="inline-start" />
-          Invite
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <MailIcon data-icon="inline-start" />
+        Invite
+      </Button>
+      <Modal
+        isOpen={open}
+        onClose={() => {
+          setOpen(false)
+          reset()
+        }}
+        heading="Invite employee"
+        description="Send an onboarding link and prepare their team profile."
+        className="sm:min-w-0 sm:max-w-xl"
+      >
         <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium">Invite employee</DialogTitle>
-            <DialogDescription>Send an onboarding link and prepare their team profile.</DialogDescription>
-          </DialogHeader>
           <EmployeeForm form={form} setForm={setForm} employees={employees} teams={teams} mode="invite" />
-          <DialogFooter className="mt-5">
+          <div className="mt-5 flex justify-end">
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Sending" : "Send invite"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   )
 }
 
@@ -505,22 +508,22 @@ function EmployeeDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+    <Modal
+      isOpen
+      onClose={onClose}
+      heading="Edit employee"
+      description="Update profile details, team assignments, and account status."
+      className="sm:min-w-0 sm:max-w-xl"
+    >
         <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium">Edit employee</DialogTitle>
-            <DialogDescription>Update profile details, team assignments, and account status.</DialogDescription>
-          </DialogHeader>
           <EmployeeForm form={form} setForm={setForm} employees={employees} teams={teams} mode="edit" currentMembershipId={employee.membershipId} />
-          <DialogFooter className="mt-5">
+          <div className="mt-5 flex justify-end">
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Saving" : "Save changes"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </Modal>
   )
 }
 
@@ -540,6 +543,7 @@ function EmployeeForm({
   currentMembershipId?: string
 }) {
   const managers = employees.filter((employee) => employee.membershipId !== currentMembershipId)
+  const managerOptions = React.useMemo(() => employeeOptions(managers), [managers])
 
   return (
     <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -565,44 +569,33 @@ function EmployeeForm({
         <Input value={form.jobTitle} onChange={(event) => setForm((value) => ({ ...value, jobTitle: event.target.value }))} />
       </Field>
       <Field label="Manager">
-        <Select value={form.managerMembershipId} onValueChange={(value) => setForm((current) => ({ ...current, managerMembershipId: value }))}>
-          <SelectTrigger className="h-9 rounded-none text-sm">
-            <SelectValue placeholder="Select manager" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No manager</SelectItem>
-            {managers.map((employee) => (
-              <SelectItem key={employee.membershipId} value={employee.membershipId}>
-                {employeeName(employee)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={form.managerMembershipId}
+          onChange={(value) => setForm((current) => ({ ...current, managerMembershipId: value }))}
+          options={managerOptions}
+          placeholder="Select manager"
+          searchPlaceholder="Search managers"
+          className="h-9 text-sm"
+        />
       </Field>
       <Field label="Role">
-        <Select value={form.roleName} onValueChange={(value) => setForm((current) => ({ ...current, roleName: value }))}>
-          <SelectTrigger className="h-9 rounded-none text-sm">
-            <SelectValue placeholder="Select role" />
-          </SelectTrigger>
-          <SelectContent>
-            {roleOptions.map((role) => (
-              <SelectItem key={role} value={role}>{role}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Select
+          value={form.roleName}
+          onChange={(value) => setForm((current) => ({ ...current, roleName: value }))}
+          options={roleSelectOptions}
+          placeholder="Select role"
+          className="h-9 text-sm"
+        />
       </Field>
       {mode === "edit" ? (
         <Field label="Status">
-          <Select value={form.status} onValueChange={(value) => setForm((current) => ({ ...current, status: value as MembershipStatus }))}>
-            <SelectTrigger className="h-9 rounded-none text-sm">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={MembershipStatus.PENDING}>Pending</SelectItem>
-              <SelectItem value={MembershipStatus.ACTIVE}>Active</SelectItem>
-              <SelectItem value={MembershipStatus.INACTIVE}>Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <Select
+            value={form.status}
+            onChange={(value) => setForm((current) => ({ ...current, status: value as MembershipStatus }))}
+            options={statusOptions}
+            placeholder="Select status"
+            className="h-9 text-sm"
+          />
         </Field>
       ) : null}
       <div className="sm:col-span-2">
@@ -645,6 +638,7 @@ function TeamDialog({
   const [open, setOpen] = React.useState(mode === "edit")
   const [name, setName] = React.useState(team?.name ?? "")
   const [managerMembershipId, setManagerMembershipId] = React.useState(team?.managerMembershipId ?? "none")
+  const managerOptions = React.useMemo(() => employeeOptions(employees), [employees])
 
   const reset = () => {
     setName(team?.name ?? "")
@@ -674,55 +668,48 @@ function TeamDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      setOpen(nextOpen)
-      if (!nextOpen) {
-        reset()
-        onClose?.()
-      }
-    }}>
+    <>
       {mode === "create" ? (
-        <DialogTrigger asChild>
-          <Button size="sm">
-            <PlusIcon data-icon="inline-start" />
-            New team
-          </Button>
-        </DialogTrigger>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <PlusIcon data-icon="inline-start" />
+          New team
+        </Button>
       ) : null}
-      <DialogContent className="sm:max-w-md">
+      <Modal
+        isOpen={open}
+        onClose={() => {
+          setOpen(false)
+          reset()
+          onClose?.()
+        }}
+        heading={mode === "create" ? "New team" : "Edit team"}
+        description="Set the team name and its operating manager."
+        className="sm:min-w-0 sm:max-w-md"
+      >
         <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium">{mode === "create" ? "New team" : "Edit team"}</DialogTitle>
-            <DialogDescription>Set the team name and its operating manager.</DialogDescription>
-          </DialogHeader>
           <div className="mt-5 grid gap-4">
             <Field label="Team name">
               <Input required value={name} onChange={(event) => setName(event.target.value)} />
             </Field>
             <Field label="Manager">
-              <Select value={managerMembershipId} onValueChange={setManagerMembershipId}>
-                <SelectTrigger className="h-9 rounded-none text-sm">
-                  <SelectValue placeholder="Select manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No manager</SelectItem>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.membershipId} value={employee.membershipId}>
-                      {employeeName(employee)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={managerMembershipId}
+                onChange={setManagerMembershipId}
+                options={managerOptions}
+                placeholder="Select manager"
+                searchPlaceholder="Search managers"
+                className="h-9 text-sm"
+              />
             </Field>
           </div>
-          <DialogFooter className="mt-5">
+          <div className="mt-5 flex justify-end">
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Saving" : mode === "create" ? "Create team" : "Save changes"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   )
 }
 

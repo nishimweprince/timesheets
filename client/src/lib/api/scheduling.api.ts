@@ -12,10 +12,12 @@ export interface ShiftTemplate {
   createdAt: string
 }
 
-export enum ShiftInstanceStatus {
-  SCHEDULED = 'SCHEDULED',
-  CANCELLED = 'CANCELLED',
-}
+export const ShiftInstanceStatus = {
+  SCHEDULED: 'SCHEDULED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export type ShiftInstanceStatus = typeof ShiftInstanceStatus[keyof typeof ShiftInstanceStatus]
 
 export interface ShiftInstance {
   id: string
@@ -28,11 +30,13 @@ export interface ShiftInstance {
   createdAt: string
 }
 
-export enum ShiftAssignmentStatus {
-  ACTIVE = 'ACTIVE',
-  CANCELLED = 'CANCELLED',
-  REASSIGNED = 'REASSIGNED',
-}
+export const ShiftAssignmentStatus = {
+  ACTIVE: 'ACTIVE',
+  CANCELLED: 'CANCELLED',
+  REASSIGNED: 'REASSIGNED',
+} as const
+
+export type ShiftAssignmentStatus = typeof ShiftAssignmentStatus[keyof typeof ShiftAssignmentStatus]
 
 export interface ShiftAssignment {
   id: string

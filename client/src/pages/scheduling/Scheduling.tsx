@@ -1,0 +1,654 @@
+"use client"
+
+import * as React from "react"
+import type { ColumnDef, PaginationState } from "@tanstack/react-table"
+
+import { AppSidebar } from "@/components/app-sidebar"
+import { SiteHeader } from "@/components/site-header"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { DataTable } from "@/components/reusable/tables"
+import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
+import {
+  createAssignment,
+  createInstance,
+  createTemplate,
+  fetchAssignments,
+  fetchInstances,
+  fetchTemplates,
+} from "@/states/features/scheduling.slice"
+import {
+  ShiftAssignmentStatus,
+  ShiftInstanceStatus,
+  type ShiftAssignment,
+  type ShiftInstance,
+  type ShiftTemplate,
+} from "@/lib/api/scheduling.api"
+import { showApiErrorToast } from "@/lib/api/errors"
+
+// --- helpers ---
+
+function shortId(id: string) {
+  return id.slice(0, 8)
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+}
+
+// --- badge styles ---
+
+const instanceStatusClass: Record<ShiftInstanceStatus, string> = {
+  [ShiftInstanceStatus.SCHEDULED]: "border-success/20 bg-success/10 text-success",
+  [ShiftInstanceStatus.CANCELLED]: "border-border bg-muted text-muted-foreground",
+}
+
+const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
+  [ShiftAssignmentStatus.ACTIVE]: "border-success/20 bg-success/10 text-success",
+  [ShiftAssignmentStatus.CANCELLED]: "border-border bg-muted text-muted-foreground",
+  [ShiftAssignmentStatus.REASSIGNED]: "border-warning/25 bg-warning/10 text-warning",
+}
+
+// --- column definitions ---
+
+const templateColumns: ColumnDef<ShiftTemplate>[] = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
+  },
+  {
+    accessorKey: "startTime",
+    header: "Start",
+    cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
+    meta: { width: "7rem" },
+  },
+  {
+    accessorKey: "endTime",
+    header: "End",
+    cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
+    meta: { width: "7rem" },
+  },
+  {
+    accessorKey: "timezone",
+    header: "Timezone",
+    cell: ({ getValue }) => (
+      <span className="text-muted-foreground">{getValue<string>()}</span>
+    ),
+  },
+  {
+    accessorKey: "active",
+    header: "Status",
+    cell: ({ getValue }) =>
+      getValue<boolean>() ? (
+        <span className="inline-flex h-6 items-center border border-success/20 bg-success/10 px-2 text-xs uppercase text-success">
+          Active
+        </span>
+      ) : (
+        <span className="inline-flex h-6 items-center border bg-muted px-2 text-xs uppercase text-muted-foreground">
+          Inactive
+        </span>
+      ),
+    meta: { align: "right", width: "8rem" },
+  },
+]
+
+const instanceColumns: ColumnDef<ShiftInstance>[] = [
+  {
+    accessorKey: "startAt",
+    header: "Date",
+    cell: ({ getValue }) => (
+      <span className="font-medium tabular-nums">{formatDate(getValue<string>())}</span>
+    ),
+    meta: { width: "9rem" },
+  },
+  {
+    id: "shift",
+    header: "Shift",
+    cell: ({ row }) => (
+      <span className="tabular-nums text-muted-foreground">
+        {formatTime(row.original.startAt)} – {formatTime(row.original.endAt)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ getValue }) => {
+      const status = getValue<ShiftInstanceStatus>()
+      return (
+        <span
+          className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${instanceStatusClass[status]}`}
+        >
+          {status}
+        </span>
+      )
+    },
+    meta: { align: "right", width: "10rem" },
+  },
+]
+
+const assignmentColumns: ColumnDef<ShiftAssignment>[] = [
+  {
+    accessorKey: "id",
+    header: "Assignment",
+    cell: ({ getValue }) => (
+      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+    ),
+    meta: { width: "8rem" },
+  },
+  {
+    accessorKey: "shiftInstanceId",
+    header: "Shift",
+    cell: ({ getValue }) => (
+      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+    ),
+    meta: { width: "8rem" },
+  },
+  {
+    accessorKey: "employeeMembershipId",
+    header: "Employee",
+    cell: ({ getValue }) => (
+      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+    ),
+    meta: { width: "8rem" },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ getValue }) => {
+      const status = getValue<ShiftAssignmentStatus>()
+      return (
+        <span
+          className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${assignmentStatusClass[status]}`}
+        >
+          {status}
+        </span>
+      )
+    },
+    meta: { align: "right", width: "10rem" },
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created",
+    cell: ({ getValue }) => (
+      <span className="tabular-nums text-muted-foreground">{formatDate(getValue<string>())}</span>
+    ),
+    meta: { align: "right", width: "9rem" },
+  },
+]
+
+// --- Tab types ---
+
+type Tab = "templates" | "shifts" | "assignments"
+
+// --- Dialogs ---
+
+function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
+  const dispatch = useAppDispatch()
+  const isLoading = useAppSelector((s) => s.scheduling.status.createTemplate === "loading")
+
+  const [open, setOpen] = React.useState(false)
+  const [name, setName] = React.useState("")
+  const [startTime, setStartTime] = React.useState("")
+  const [endTime, setEndTime] = React.useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await dispatch(createTemplate({ name, startTime, endTime })).unwrap()
+      setOpen(false)
+      setName("")
+      setStartTime("")
+      setEndTime("")
+      onCreated()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 rounded-none text-xs">
+          New Template
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium">New shift template</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Name</Label>
+            <Input
+              required
+              placeholder="e.g. Morning Ward"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-9 rounded-none text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Start time</Label>
+              <Input
+                required
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-9 rounded-none text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">End time</Label>
+              <Input
+                required
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="h-9 rounded-none text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
+              {isLoading ? "Creating…" : "Create template"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
+  const dispatch = useAppDispatch()
+  const templates = useAppSelector((s) => s.scheduling.templates)
+  const isLoading = useAppSelector((s) => s.scheduling.status.createInstance === "loading")
+
+  const [open, setOpen] = React.useState(false)
+  const [templateId, setTemplateId] = React.useState<string | undefined>(undefined)
+  const [startAt, setStartAt] = React.useState("")
+  const [endAt, setEndAt] = React.useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await dispatch(
+        createInstance({
+          startAt: new Date(startAt).toISOString(),
+          endAt: new Date(endAt).toISOString(),
+          ...(templateId ? { shiftTemplateId: templateId } : {}),
+        })
+      ).unwrap()
+      setOpen(false)
+      setTemplateId(undefined)
+      setStartAt("")
+      setEndAt("")
+      onCreated()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 rounded-none text-xs">
+          New Shift
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium">New shift</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {templates.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Template (optional)</Label>
+              <Select
+                value={templateId ?? "none"}
+                onValueChange={(v) => setTemplateId(v === "none" ? undefined : v)}
+              >
+                <SelectTrigger className="h-9 rounded-none text-sm">
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No template</SelectItem>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Start</Label>
+            <Input
+              required
+              type="datetime-local"
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
+              className="h-9 rounded-none text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">End</Label>
+            <Input
+              required
+              type="datetime-local"
+              value={endAt}
+              onChange={(e) => setEndAt(e.target.value)}
+              className="h-9 rounded-none text-sm"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
+              {isLoading ? "Creating…" : "Create shift"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
+  const dispatch = useAppDispatch()
+  const instances = useAppSelector((s) => s.scheduling.instances)
+  const isLoading = useAppSelector((s) => s.scheduling.status.assign === "loading")
+
+  const [open, setOpen] = React.useState(false)
+  const [shiftInstanceId, setShiftInstanceId] = React.useState("")
+  const [employeeMembershipId, setEmployeeMembershipId] = React.useState("")
+
+  const scheduledInstances = React.useMemo(
+    () => instances.filter((i) => i.status === ShiftInstanceStatus.SCHEDULED),
+    [instances]
+  )
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await dispatch(createAssignment({ shiftInstanceId, employeeMembershipId })).unwrap()
+      setOpen(false)
+      setShiftInstanceId("")
+      setEmployeeMembershipId("")
+      onCreated()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 rounded-none text-xs">
+          Assign Employee
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium">Assign employee to shift</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Shift instance</Label>
+            {scheduledInstances.length > 0 ? (
+              <Select value={shiftInstanceId} onValueChange={setShiftInstanceId}>
+                <SelectTrigger className="h-9 rounded-none text-sm">
+                  <SelectValue placeholder="Select a shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scheduledInstances.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {formatDate(i.startAt)} {formatTime(i.startAt)} – {formatTime(i.endAt)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                required
+                placeholder="Shift instance ID"
+                value={shiftInstanceId}
+                onChange={(e) => setShiftInstanceId(e.target.value)}
+                className="h-9 rounded-none text-sm font-mono"
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Employee membership ID</Label>
+            <Input
+              required
+              placeholder="Employee membership ID"
+              value={employeeMembershipId}
+              onChange={(e) => setEmployeeMembershipId(e.target.value)}
+              className="h-9 rounded-none text-sm font-mono"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-8 rounded-none text-xs"
+              disabled={isLoading || !shiftInstanceId}
+            >
+              {isLoading ? "Assigning…" : "Assign"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// --- Main page ---
+
+const tabItems: { key: Tab; label: string }[] = [
+  { key: "templates", label: "Templates" },
+  { key: "shifts", label: "Shifts" },
+  { key: "assignments", label: "Assignments" },
+]
+
+const Scheduling = () => {
+  const dispatch = useAppDispatch()
+
+  const templates = useAppSelector((s) => s.scheduling.templates)
+  const instances = useAppSelector((s) => s.scheduling.instances)
+  const assignments = useAppSelector((s) => s.scheduling.assignments)
+  const statusTemplates = useAppSelector((s) => s.scheduling.status.templates)
+  const statusInstances = useAppSelector((s) => s.scheduling.status.instances)
+  const statusAssignments = useAppSelector((s) => s.scheduling.status.assignments)
+
+  const [activeTab, setActiveTab] = React.useState<Tab>("templates")
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 8,
+  })
+
+  React.useEffect(() => {
+    dispatch(fetchTemplates())
+    dispatch(fetchInstances())
+    dispatch(fetchAssignments())
+  }, [dispatch])
+
+  const summaryCards = [
+    { label: "Templates", value: String(templates.length), sub: "shift templates" },
+    { label: "Shifts", value: String(instances.length), sub: "shift instances" },
+    { label: "Assignments", value: String(assignments.length), sub: "active assignments" },
+  ]
+
+  const isLoadingCurrent =
+    activeTab === "templates"
+      ? statusTemplates === "loading"
+      : activeTab === "shifts"
+      ? statusInstances === "loading"
+      : statusAssignments === "loading"
+
+  const paginatedTemplates = React.useMemo(() => {
+    const start = pagination.pageIndex * pagination.pageSize
+    return templates.slice(start, start + pagination.pageSize)
+  }, [templates, pagination])
+
+  const paginatedInstances = React.useMemo(() => {
+    const start = pagination.pageIndex * pagination.pageSize
+    return instances.slice(start, start + pagination.pageSize)
+  }, [instances, pagination])
+
+  const paginatedAssignments = React.useMemo(() => {
+    const start = pagination.pageIndex * pagination.pageSize
+    return assignments.slice(start, start + pagination.pageSize)
+  }, [assignments, pagination])
+
+  return (
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "16rem",
+          "--header-height": "3.5rem",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+            {/* Summary cards */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {summaryCards.map((m, idx) => (
+                <Card key={idx}>
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-xs uppercase tracking-[0.12em]">
+                      {m.label}
+                    </CardDescription>
+                    <CardTitle className="text-3xl font-semibold tabular-nums tracking-tighter">
+                      {m.value}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">{m.sub}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 border-b border-border">
+              {tabItems.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.key)
+                    setPagination((p) => ({ ...p, pageIndex: 0 }))
+                  }}
+                  className={[
+                    "relative h-9 px-4 text-xs transition-colors",
+                    activeTab === tab.key
+                      ? "border-b-2 border-primary font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Templates tab */}
+            {activeTab === "templates" && (
+              <DataTable
+                eyebrow="Scheduling"
+                title="Shift templates"
+                columns={templateColumns}
+                data={paginatedTemplates}
+                getRowId={(t) => t.id}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                rowCount={templates.length}
+                pageSizeOptions={[8, 16, 32]}
+                isLoading={isLoadingCurrent}
+                emptyTitle="No templates yet"
+                emptyDescription="Create a template to define recurring shift patterns."
+                actions={<NewTemplateDialog onCreated={() => dispatch(fetchTemplates())} />}
+              />
+            )}
+
+            {/* Shifts tab */}
+            {activeTab === "shifts" && (
+              <DataTable
+                eyebrow="Scheduling"
+                title="Shift instances"
+                columns={instanceColumns}
+                data={paginatedInstances}
+                getRowId={(i) => i.id}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                rowCount={instances.length}
+                pageSizeOptions={[8, 16, 32]}
+                isLoading={isLoadingCurrent}
+                emptyTitle="No shifts scheduled"
+                emptyDescription="Create a shift to schedule work for your team."
+                actions={<NewShiftDialog onCreated={() => dispatch(fetchInstances())} />}
+              />
+            )}
+
+            {/* Assignments tab */}
+            {activeTab === "assignments" && (
+              <DataTable
+                eyebrow="Scheduling"
+                title="Shift assignments"
+                columns={assignmentColumns}
+                data={paginatedAssignments}
+                getRowId={(a) => a.id}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                rowCount={assignments.length}
+                pageSizeOptions={[8, 16, 32]}
+                isLoading={isLoadingCurrent}
+                emptyTitle="No assignments yet"
+                emptyDescription="Assign employees to scheduled shifts to get started."
+                actions={<AssignEmployeeDialog onCreated={() => dispatch(fetchAssignments())} />}
+              />
+            )}
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+export default Scheduling

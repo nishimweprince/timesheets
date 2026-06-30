@@ -3,6 +3,7 @@ import { TenantBaseDomain } from '../../../common/entities/tenant-base-domain.en
 import { Auditable } from '../../audit/auditable.decorator';
 
 export enum MembershipStatus {
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE'
 }

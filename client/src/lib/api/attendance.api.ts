@@ -1,14 +1,16 @@
 import { apiRequest } from './client'
 
-export enum WorkSessionStatus {
-  OPEN = 'OPEN',
-  CLOCKED_OUT = 'CLOCKED_OUT',
-  PENDING_REVIEW = 'PENDING_REVIEW',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  LOCKED = 'LOCKED',
-  CANCELLED = 'CANCELLED',
-}
+export const WorkSessionStatus = {
+  OPEN: 'OPEN',
+  CLOCKED_OUT: 'CLOCKED_OUT',
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  LOCKED: 'LOCKED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export type WorkSessionStatus = typeof WorkSessionStatus[keyof typeof WorkSessionStatus]
 
 export interface WorkSession {
   id: string

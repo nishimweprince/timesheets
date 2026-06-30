@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import * as React from 'react';
+import { EmployeeInvitationEmail } from './templates/EmployeeInvitationEmail';
 import { PasswordResetEmail } from './templates/PasswordResetEmail';
 
 @Injectable()
@@ -27,6 +28,22 @@ export class MailService {
     if (error) {
       this.logger.error(`Failed to send password reset email to ${to}: ${JSON.stringify(error)}`);
       throw new Error('Failed to send password reset email');
+    }
+  }
+
+  async sendEmployeeInvitation(to: string, onboardingUrl: string, organizationName: string): Promise<void> {
+    const html = await render(React.createElement(EmployeeInvitationEmail, { onboardingUrl, organizationName }));
+
+    const { error } = await this.resend.emails.send({
+      from: this.config.getOrThrow<string>('FROM_EMAIL'),
+      to,
+      subject: `Join ${organizationName} on Tuza Health Timesheets`,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send employee invitation email to ${to}: ${JSON.stringify(error)}`);
+      throw new Error('Failed to send employee invitation email');
     }
   }
 }

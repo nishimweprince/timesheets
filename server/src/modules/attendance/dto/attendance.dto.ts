@@ -1,10 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { IsDateString, IsLatitude, IsLongitude, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
 
 export class LocationDto {
+  @IsLatitude()
   @IsNumber()
   latitude: number;
 
+  @IsLongitude()
   @IsNumber()
   longitude: number;
 

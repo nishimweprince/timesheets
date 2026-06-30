@@ -49,6 +49,7 @@ export class AttendanceService {
 
   async clockIn(user: RequestUser, dto: ClockDto, request: AuthenticatedRequest): Promise<Record<string, unknown>> {
     const idempotencyKey = this.idempotencyKey(request);
+    this.requireValidLocation(dto);
     const serverNow = new Date();
     const existingAttempt = await this.dataSource.getRepository(ClockAttempt).findOne({
       where: { organizationId: user.organizationId, employeeMembershipId: user.membershipId, action: 'CLOCK_IN', idempotencyKey }
@@ -171,6 +172,7 @@ export class AttendanceService {
 
   async clockOut(user: RequestUser, dto: ClockDto, request: AuthenticatedRequest): Promise<Record<string, unknown>> {
     const idempotencyKey = this.idempotencyKey(request);
+    this.requireValidLocation(dto);
     const serverNow = new Date();
     return this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${user.organizationId}:${user.membershipId}`]);
@@ -240,6 +242,17 @@ export class AttendanceService {
     const key = request.header('idempotency-key');
     if (!key) throw new BadRequestException('Idempotency-Key header is required');
     return key;
+  }
+
+  private requireValidLocation(dto: ClockDto): void {
+    const location = dto.location;
+    if (!location) throw new BadRequestException('Location is required for clock actions');
+    if (!Number.isFinite(location.latitude) || location.latitude < -90 || location.latitude > 90) {
+      throw new BadRequestException('Valid latitude is required for clock actions');
+    }
+    if (!Number.isFinite(location.longitude) || location.longitude < -180 || location.longitude > 180) {
+      throw new BadRequestException('Valid longitude is required for clock actions');
+    }
   }
 
   private attemptBase(

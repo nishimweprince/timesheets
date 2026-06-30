@@ -3,7 +3,8 @@
 import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
-import { PlayIcon, SquareIcon } from "lucide-react"
+import { CalendarIcon, FileTextIcon, PlayIcon, SquareIcon } from "lucide-react"
+import { Link } from "react-router-dom"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
@@ -33,8 +34,16 @@ import {
   fetchCurrentSession,
   fetchHistory,
 } from "@/states/features/attendance.slice"
-import { WorkSessionStatus, type WorkSession } from "@/lib/api/attendance.api"
+import { WorkSessionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
+import { setLocation } from "@/states/features/location.slice"
+import {
+  computeWeeklyHours,
+  formatTime,
+  sessionToEntry,
+  statusClassNames,
+  type RecentEntry,
+} from "@/lib/attendance.utils"
 
 // --- Chart config ---
 const chartConfig = {
@@ -43,72 +52,6 @@ const chartConfig = {
     color: "var(--primary)",
   },
 } satisfies ChartConfig
-
-// --- Session-to-row mapping ---
-type RecentEntry = {
-  id: string
-  date: string
-  clockIn: string
-  clockOut: string | null
-  hours: number
-  status: "Approved" | "Pending" | "Draft"
-}
-
-const statusClassNames: Record<RecentEntry["status"], string> = {
-  Approved: "border-success/20 bg-success/10 text-success",
-  Pending: "border-warning/25 bg-warning/10 text-warning",
-  Draft: "border-border bg-muted text-muted-foreground",
-}
-
-function mapSessionStatus(status: WorkSessionStatus): RecentEntry["status"] {
-  if (status === WorkSessionStatus.APPROVED || status === WorkSessionStatus.LOCKED) return "Approved"
-  if (status === WorkSessionStatus.REJECTED || status === WorkSessionStatus.CANCELLED) return "Draft"
-  return "Pending"
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-}
-
-function sessionToEntry(session: WorkSession): RecentEntry {
-  const minutes = session.netMinutes ?? session.grossMinutes ?? 0
-  return {
-    id: session.id,
-    date: formatDate(session.actualClockInAt),
-    clockIn: formatTime(session.actualClockInAt),
-    clockOut: session.actualClockOutAt ? formatTime(session.actualClockOutAt) : null,
-    hours: Math.round((minutes / 60) * 100) / 100,
-    status: mapSessionStatus(session.status),
-  }
-}
-
-function computeWeeklyHours(sessions: WorkSession[]) {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-  const now = new Date()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7))
-  monday.setHours(0, 0, 0, 0)
-
-  return days.map((day, idx) => {
-    const dayStart = new Date(monday)
-    dayStart.setDate(monday.getDate() + idx)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayStart.getDate() + 1)
-
-    const totalMinutes = sessions
-      .filter((s) => {
-        const t = new Date(s.actualClockInAt)
-        return t >= dayStart && t < dayEnd
-      })
-      .reduce((sum, s) => sum + (s.netMinutes ?? s.grossMinutes ?? 0), 0)
-
-    return { day, hours: Math.round((totalMinutes / 60) * 100) / 100, target: idx < 5 ? 8 : 0 }
-  })
-}
 
 const recentEntryColumns: ColumnDef<RecentEntry>[] = [
   {
@@ -158,6 +101,7 @@ const Dashboard = () => {
   const orgSessions = useAppSelector((s) => s.attendance.orgSessions)
   const clockInLoading = useAppSelector((s) => s.attendance.status.clockIn === "loading")
   const clockOutLoading = useAppSelector((s) => s.attendance.status.clockOut === "loading")
+  const storedCoords = useAppSelector((s) => s.location.coords)
 
   const [recentPagination, setRecentPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -171,13 +115,45 @@ const Dashboard = () => {
 
   const isOnShift = currentSession?.status === WorkSessionStatus.OPEN
 
+  const getLocation = (): Promise<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string }> =>
+    new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracyMeters: pos.coords.accuracy,
+            capturedAt: new Date().toISOString(),
+          }
+          dispatch(setLocation({ ...coords, accuracy: pos.coords.accuracy }))
+          resolve(coords)
+        },
+        () => {
+          // Fall back to the last known position from the guard
+          if (storedCoords) {
+            resolve({
+              latitude: storedCoords.latitude,
+              longitude: storedCoords.longitude,
+              accuracyMeters: storedCoords.accuracy,
+              capturedAt: storedCoords.capturedAt,
+            })
+          } else {
+            reject(new Error("Location unavailable"))
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      )
+    })
+
   const handleClockIn = async () => {
     try {
+      const location = await getLocation()
       await dispatch(
         clockIn({
           clientReportedAt: new Date().toISOString(),
           clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+          location: { ...location, source: "browser", permissionState: "granted" },
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
@@ -189,11 +165,13 @@ const Dashboard = () => {
 
   const handleClockOut = async () => {
     try {
+      const location = await getLocation()
       await dispatch(
         clockOut({
           clientReportedAt: new Date().toISOString(),
           clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+          location: { ...location, source: "browser", permissionState: "granted" },
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
@@ -339,6 +317,59 @@ const Dashboard = () => {
               ))}
             </div>
 
+            {/* Quick navigation */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card className="group">
+                <CardHeader className="pb-2">
+                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                    Operations
+                  </CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-base font-medium">
+                    <CalendarIcon className="size-4 text-muted-foreground" />
+                    Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Create shifts, manage templates and assign employees.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 rounded-none text-xs"
+                    asChild
+                  >
+                    <Link to="/scheduling">Open</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="group">
+                <CardHeader className="pb-2">
+                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                    My records
+                  </CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-base font-medium">
+                    <FileTextIcon className="size-4 text-muted-foreground" />
+                    Timesheets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    View and manage your full attendance history.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 rounded-none text-xs"
+                    asChild
+                  >
+                    <Link to="/timesheets">Open</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Weekly hours chart */}
             <Card>
               <CardHeader className="pb-2">
@@ -397,7 +428,7 @@ const Dashboard = () => {
               emptyDescription="Clock in to start a new timesheet entry."
               actions={
                 <Button variant="outline" size="sm" className="h-8 text-xs rounded-none" asChild>
-                  <a href="#">View all</a>
+                  <Link to="/timesheets">View all</Link>
                 </Button>
               }
             />

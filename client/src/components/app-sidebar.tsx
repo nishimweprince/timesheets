@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useAppSelector } from "@/states/store/hooks.state"
 import {
   Sidebar,
   SidebarContent,
@@ -35,17 +36,28 @@ type NavItem = {
 
 const mainNav: NavItem[] = [
   { title: "Overview", url: "/dashboard", icon: HomeIcon },
-  { title: "My Timesheets", url: "#", icon: FileTextIcon, badge: "2" },
+  { title: "My Timesheets", url: "/timesheets", icon: FileTextIcon },
 ]
 
 const operationsNav: NavItem[] = [
-  { title: "Schedule", url: "#", icon: CalendarIcon },
+  { title: "Schedule", url: "/scheduling", icon: CalendarIcon },
   { title: "Reports", url: "#", icon: BarChart3Icon },
-  { title: "Team", url: "#", icon: UsersIcon, badge: "12" },
+  { title: "Team", url: "/team", icon: UsersIcon },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useLocation()
+  const employeeCount = useAppSelector((state) => state.employeeManagement.employees.length)
+  const permissions = useAppSelector((state) => state.auth.user?.permissions ?? [])
+  const canReadEmployees = permissions.includes("employee.read")
+
+  const visibleOperationsNav = operationsNav
+    .filter((item) => item.title !== "Team" || canReadEmployees)
+    .map((item) =>
+      item.title === "Team" && employeeCount > 0
+        ? { ...item, badge: String(employeeCount) }
+        : item,
+    )
 
   const renderNav = (items: NavItem[]) =>
     items.map((item) => {
@@ -129,7 +141,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             Operations
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{renderNav(operationsNav)}</SidebarMenu>
+            <SidebarMenu className="gap-1">{renderNav(visibleOperationsNav)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

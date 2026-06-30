@@ -8,7 +8,7 @@ import { WorkSite } from './entities/work-site.entity';
 import { CreatePolicyAssignmentDto, CreatePolicyDto, CreateWorkSiteDto } from './dto/policy.dto';
 
 export const DEFAULT_POLICY_RULES: AttendancePolicyRules = {
-  requireClockInPhoto: true,
+  requireClockInPhoto: false,
   requireClockOutPhoto: false,
   requireLocation: false,
   unplannedClockIn: PolicyEnforcement.FLAG,

@@ -14,102 +14,41 @@ export type ApiErrorToast = {
   description: string
 }
 
-const MESSAGE_MAP: Record<string, ApiErrorToast> = {
-  'Invalid credentials': {
-    title: 'Could not sign in',
-    description: 'Check your email and password and try again.',
-  },
-  'No active organization membership': {
-    title: 'Account not active',
-    description:
-      'Your account has no active institution membership. Contact your administrator.',
-  },
-  'Invalid refresh token': {
-    title: 'Session ended',
-    description: 'Sign in again to continue.',
-  },
-  'Session expired': {
-    title: 'Session ended',
-    description: 'Sign in again to continue.',
-  },
-  'No refresh token': {
-    title: 'Session ended',
-    description: 'Sign in again to continue.',
-  },
-  'Missing bearer token': {
-    title: 'Session ended',
-    description: 'Sign in again to continue.',
-  },
-  'Invalid bearer token': {
-    title: 'Session ended',
-    description: 'Sign in again to continue.',
-  },
-  'Invalid or expired password reset token': {
-    title: 'Link expired',
-    description: 'Request a new password reset link and try again.',
-  },
-  'Internal server error': {
-    title: 'Something went wrong',
-    description: 'Try again in a moment.',
-  },
-}
-
-const CONTEXT_FALLBACKS: Record<ApiErrorContext, ApiErrorToast> = {
-  login: {
-    title: 'Could not sign in',
-    description: 'Check your details and try again.',
-  },
-  'forgot-password': {
-    title: 'Could not send reset link',
-    description: 'Check your email address and try again.',
-  },
-  'reset-password': {
-    title: 'Could not reset password',
-    description: 'Check your new password and try again.',
-  },
-  logout: {
-    title: 'Could not sign out',
-    description: 'Try again in a moment.',
-  },
-  generic: {
-    title: 'Something went wrong',
-    description: 'Try again in a moment.',
-  },
+const CONTEXT_TITLES: Record<ApiErrorContext, string> = {
+  login: 'Could not sign in',
+  'forgot-password': 'Could not send reset link',
+  'reset-password': 'Could not reset password',
+  logout: 'Could not sign out',
+  generic: 'Something went wrong',
 }
 
 export function getApiErrorToast(
   err: unknown,
   context: ApiErrorContext = 'generic',
 ): ApiErrorToast {
+  const title = CONTEXT_TITLES[context]
+
   if (!(err instanceof ApiError)) {
-    return CONTEXT_FALLBACKS[context]
-  }
-
-  const mapped = MESSAGE_MAP[err.message]
-  if (mapped) {
-    return mapped
-  }
-
-  if (err.status === 401 && context === 'login') {
-    return CONTEXT_FALLBACKS.login
-  }
-
-  if (err.status === 401 && context === 'reset-password') {
-    return MESSAGE_MAP['Invalid or expired password reset token']
+    // Redux .unwrap() re-throws a SerializedError (plain object) — message is preserved
+    if (err && typeof err === 'object' && 'message' in err) {
+      const msg = (err as { message: unknown }).message
+      if (typeof msg === 'string' && msg && !msg.startsWith('Request failed with status')) {
+        return { title, description: msg }
+      }
+    }
+    return { title, description: 'Try again in a moment.' }
   }
 
   if (err.status >= 500) {
-    return MESSAGE_MAP['Internal server error']
+    return { title, description: 'Something went wrong on our end. Try again in a moment.' }
   }
 
-  if (err.message && !err.message.startsWith('Request failed with status')) {
-    return {
-      title: CONTEXT_FALLBACKS?.[context]?.title,
-      description: err?.message,
-    }
-  }
+  const description =
+    err.message && !err.message.startsWith('Request failed with status')
+      ? err.message
+      : 'Try again in a moment.'
 
-  return CONTEXT_FALLBACKS[context]
+  return { title, description }
 }
 
 export function showApiErrorToast(

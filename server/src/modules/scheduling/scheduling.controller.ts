@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { RequestUser } from '../../common/types/authenticated-request';
 import { CreateShiftAssignmentDto, CreateShiftInstanceDto, CreateShiftTemplateDto } from './dto/scheduling.dto';
 import { SchedulingService } from './scheduling.service';
@@ -17,6 +18,7 @@ export class SchedulingController {
 
   @Post('shift-templates')
   @Permissions('shift.create')
+  @ResponseMessage('Shift template created')
   createTemplate(@CurrentUser() user: RequestUser, @Body() dto: CreateShiftTemplateDto) {
     return this.schedulingService.createTemplate(user, dto);
   }
@@ -29,6 +31,7 @@ export class SchedulingController {
 
   @Post('shift-instances')
   @Permissions('shift.create')
+  @ResponseMessage('Shift created')
   createInstance(@CurrentUser() user: RequestUser, @Body() dto: CreateShiftInstanceDto) {
     return this.schedulingService.createInstance(user, dto);
   }
@@ -41,6 +44,7 @@ export class SchedulingController {
 
   @Post('shift-assignments')
   @Permissions('shift.assign')
+  @ResponseMessage('Shift assigned successfully')
   assign(@CurrentUser() user: RequestUser, @Body() dto: CreateShiftAssignmentDto) {
     return this.schedulingService.assign(user, dto);
   }

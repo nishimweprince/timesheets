@@ -16,7 +16,8 @@ async function bootstrap() {
   app.use(helmet());
   app.enableCors({
     origin: corsOrigins.length > 0 ? corsOrigins : true,
-    credentials: true
+    credentials: true,
+    exposedHeaders: ['X-Message', 'X-Correlation-Id'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

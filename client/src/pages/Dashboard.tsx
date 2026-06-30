@@ -26,18 +26,17 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { DataTable } from "@/components/reusable/tables"
+import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
+import {
+  clockIn,
+  clockOut,
+  fetchCurrentSession,
+  fetchHistory,
+} from "@/states/features/attendance.slice"
+import { WorkSessionStatus, type WorkSession } from "@/lib/api/attendance.api"
+import { showApiErrorToast } from "@/lib/api/errors"
 
-// --- Mock data (realistic for Tuza Health timesheets) ---
-const weeklyHours = [
-  { day: "Mon", hours: 8.5, target: 8 },
-  { day: "Tue", hours: 7.25, target: 8 },
-  { day: "Wed", hours: 9.0, target: 8 },
-  { day: "Thu", hours: 8.0, target: 8 },
-  { day: "Fri", hours: 6.75, target: 8 },
-  { day: "Sat", hours: 0, target: 0 },
-  { day: "Sun", hours: 0, target: 0 },
-]
-
+// --- Chart config ---
 const chartConfig = {
   hours: {
     label: "Hours",
@@ -45,8 +44,9 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+// --- Session-to-row mapping ---
 type RecentEntry = {
-  id: number
+  id: string
   date: string
   clockIn: string
   clockOut: string | null
@@ -54,23 +54,60 @@ type RecentEntry = {
   status: "Approved" | "Pending" | "Draft"
 }
 
-const recentEntries: RecentEntry[] = [
-  { id: 1, date: "Jun 27", clockIn: "07:58", clockOut: "16:32", hours: 8.57, status: "Approved" },
-  { id: 2, date: "Jun 26", clockIn: "08:02", clockOut: "15:15", hours: 7.22, status: "Approved" },
-  { id: 3, date: "Jun 25", clockIn: "08:15", clockOut: "17:30", hours: 9.25, status: "Approved" },
-  { id: 4, date: "Jun 24", clockIn: "07:45", clockOut: null, hours: 8.0, status: "Pending" },
-  { id: 5, date: "Jun 23", clockIn: "08:04", clockOut: "16:09", hours: 8.08, status: "Approved" },
-  { id: 6, date: "Jun 20", clockIn: "08:21", clockOut: "15:52", hours: 7.52, status: "Draft" },
-  { id: 7, date: "Jun 19", clockIn: "07:55", clockOut: "16:11", hours: 8.27, status: "Approved" },
-  { id: 8, date: "Jun 18", clockIn: "08:00", clockOut: "16:03", hours: 8.05, status: "Approved" },
-  { id: 9, date: "Jun 17", clockIn: "08:12", clockOut: "15:43", hours: 7.52, status: "Pending" },
-  { id: 10, date: "Jun 16", clockIn: "07:49", clockOut: "16:20", hours: 8.52, status: "Approved" },
-]
-
 const statusClassNames: Record<RecentEntry["status"], string> = {
   Approved: "border-success/20 bg-success/10 text-success",
   Pending: "border-warning/25 bg-warning/10 text-warning",
   Draft: "border-border bg-muted text-muted-foreground",
+}
+
+function mapSessionStatus(status: WorkSessionStatus): RecentEntry["status"] {
+  if (status === WorkSessionStatus.APPROVED || status === WorkSessionStatus.LOCKED) return "Approved"
+  if (status === WorkSessionStatus.REJECTED || status === WorkSessionStatus.CANCELLED) return "Draft"
+  return "Pending"
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+}
+
+function sessionToEntry(session: WorkSession): RecentEntry {
+  const minutes = session.netMinutes ?? session.grossMinutes ?? 0
+  return {
+    id: session.id,
+    date: formatDate(session.actualClockInAt),
+    clockIn: formatTime(session.actualClockInAt),
+    clockOut: session.actualClockOutAt ? formatTime(session.actualClockOutAt) : null,
+    hours: Math.round((minutes / 60) * 100) / 100,
+    status: mapSessionStatus(session.status),
+  }
+}
+
+function computeWeeklyHours(sessions: WorkSession[]) {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  const now = new Date()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+  monday.setHours(0, 0, 0, 0)
+
+  return days.map((day, idx) => {
+    const dayStart = new Date(monday)
+    dayStart.setDate(monday.getDate() + idx)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayStart.getDate() + 1)
+
+    const totalMinutes = sessions
+      .filter((s) => {
+        const t = new Date(s.actualClockInAt)
+        return t >= dayStart && t < dayEnd
+      })
+      .reduce((sum, s) => sum + (s.netMinutes ?? s.grossMinutes ?? 0), 0)
+
+    return { day, hours: Math.round((totalMinutes / 60) * 100) / 100, target: idx < 5 ? 8 : 0 }
+  })
 }
 
 const recentEntryColumns: ColumnDef<RecentEntry>[] = [
@@ -80,9 +117,7 @@ const recentEntryColumns: ColumnDef<RecentEntry>[] = [
     cell: ({ row }) => (
       <div className="font-medium tabular-nums">{row.original.date}</div>
     ),
-    meta: {
-      width: "7rem",
-    },
+    meta: { width: "7rem" },
   },
   {
     id: "shift",
@@ -99,10 +134,7 @@ const recentEntryColumns: ColumnDef<RecentEntry>[] = [
     cell: ({ getValue }) => (
       <span className="font-medium tabular-nums">{getValue<number>().toFixed(2)}h</span>
     ),
-    meta: {
-      align: "right",
-      width: "6rem",
-    },
+    meta: { align: "right", width: "6rem" },
   },
   {
     accessorKey: "status",
@@ -114,47 +146,114 @@ const recentEntryColumns: ColumnDef<RecentEntry>[] = [
         {row.original.status}
       </span>
     ),
-    meta: {
-      align: "right",
-      width: "8rem",
-    },
+    meta: { align: "right", width: "8rem" },
   },
 ]
 
 const Dashboard = () => {
-  const [isOnShift, setIsOnShift] = React.useState(false)
-  const [shiftStart] = React.useState("08:14")
-  const [todayHours, setTodayHours] = React.useState(2.4)
+  const dispatch = useAppDispatch()
+
+  const currentSession = useAppSelector((s) => s.attendance.currentSession)
+  const history = useAppSelector((s) => s.attendance.history)
+  const orgSessions = useAppSelector((s) => s.attendance.orgSessions)
+  const clockInLoading = useAppSelector((s) => s.attendance.status.clockIn === "loading")
+  const clockOutLoading = useAppSelector((s) => s.attendance.status.clockOut === "loading")
+
   const [recentPagination, setRecentPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 4,
   })
 
-  const paginatedRecentEntries = React.useMemo(() => {
-    const start = recentPagination.pageIndex * recentPagination.pageSize
-    return recentEntries.slice(start, start + recentPagination.pageSize)
-  }, [recentPagination])
+  React.useEffect(() => {
+    dispatch(fetchCurrentSession())
+    dispatch(fetchHistory())
+  }, [dispatch])
 
-  // Simple mock clock toggle (updates UI state + today hours)
-  const toggleShift = () => {
-    if (!isOnShift) {
-      setIsOnShift(true)
-      // simulate time passing while on shift (demo only)
-      setTodayHours((h) => Math.round((h + 0.1) * 10) / 10)
-    } else {
-      setIsOnShift(false)
-      // "save" the entry in demo
-      setTodayHours((h) => Math.round((h + 0.3) * 10) / 10)
+  const isOnShift = currentSession?.status === WorkSessionStatus.OPEN
+
+  const handleClockIn = async () => {
+    try {
+      await dispatch(
+        clockIn({
+          clientReportedAt: new Date().toISOString(),
+          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+        })
+      ).unwrap()
+      dispatch(fetchCurrentSession())
+      dispatch(fetchHistory())
+    } catch (err) {
+      showApiErrorToast(err)
     }
   }
 
-  // Quick metrics (some derived from mocks)
+  const handleClockOut = async () => {
+    try {
+      await dispatch(
+        clockOut({
+          clientReportedAt: new Date().toISOString(),
+          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+        })
+      ).unwrap()
+      dispatch(fetchCurrentSession())
+      dispatch(fetchHistory())
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  // Derived metrics
+  const weeklyData = React.useMemo(() => computeWeeklyHours(history), [history])
+
+  const weekHours = React.useMemo(
+    () => Math.round(weeklyData.reduce((sum, d) => sum + d.hours, 0) * 10) / 10,
+    [weeklyData]
+  )
+
+  const todayHours = React.useMemo(() => {
+    const today = new Date().toDateString()
+    const minutes = history
+      .filter((s) => new Date(s.actualClockInAt).toDateString() === today)
+      .reduce((sum, s) => sum + (s.netMinutes ?? s.grossMinutes ?? 0), 0)
+    return Math.round((minutes / 60) * 10) / 10
+  }, [history])
+
+  const daysWorked = React.useMemo(() => {
+    const week = new Set(
+      weeklyData.flatMap((d, idx) => (d.hours > 0 ? [idx] : []))
+    )
+    return week.size
+  }, [weeklyData])
+
+  const teamOnDuty = orgSessions.filter((s) => s.status === WorkSessionStatus.OPEN).length
+
+  const allEntries = React.useMemo(
+    () => history.map(sessionToEntry),
+    [history]
+  )
+
+  const paginatedEntries = React.useMemo(() => {
+    const start = recentPagination.pageIndex * recentPagination.pageSize
+    return allEntries.slice(start, start + recentPagination.pageSize)
+  }, [allEntries, recentPagination])
+
   const metrics = [
-    { label: "Hours this week", value: "31.5", sub: "of 40 target" },
-    { label: "Today logged", value: todayHours.toFixed(1), sub: isOnShift ? "On shift" : "Complete" },
-    { label: "Days worked", value: "4", sub: "this week" },
-    { label: "Team on duty", value: "12", sub: "across wards" },
+    { label: "Hours this week", value: String(weekHours), sub: "of 40 target" },
+    {
+      label: "Today logged",
+      value: todayHours.toFixed(1),
+      sub: isOnShift ? "On shift" : "Complete",
+    },
+    { label: "Days worked", value: String(daysWorked), sub: "this week" },
+    {
+      label: "Team on duty",
+      value: teamOnDuty > 0 ? String(teamOnDuty) : "-",
+      sub: "across wards",
+    },
   ]
+
+  const actionLoading = clockInLoading || clockOutLoading
 
   return (
     <SidebarProvider
@@ -171,7 +270,7 @@ const Dashboard = () => {
 
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-            {/* Signature element: Prominent Clock In / Out */}
+            {/* Clock In / Out */}
             <Card className="border-primary/30">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -184,7 +283,9 @@ const Dashboard = () => {
                     </CardTitle>
                   </div>
                   <div className="text-right text-xs text-muted-foreground tabular-nums">
-                    {isOnShift ? `Started ${shiftStart}` : "Last shift ended today"}
+                    {isOnShift && currentSession
+                      ? `Started ${formatTime(currentSession.actualClockInAt)}`
+                      : "Last shift ended today"}
                   </div>
                 </div>
               </CardHeader>
@@ -193,18 +294,19 @@ const Dashboard = () => {
                   <Button
                     size="lg"
                     className="h-11 rounded-none px-8 text-sm font-medium"
-                    onClick={toggleShift}
+                    onClick={isOnShift ? handleClockOut : handleClockIn}
                     variant={isOnShift ? "destructive" : "default"}
+                    disabled={actionLoading}
                   >
                     {isOnShift ? (
                       <>
                         <SquareIcon data-icon="inline-start" />
-                        Clock Out
+                        {clockOutLoading ? "Clocking out…" : "Clock Out"}
                       </>
                     ) : (
                       <>
                         <PlayIcon data-icon="inline-start" />
-                        Clock In
+                        {clockInLoading ? "Clocking in…" : "Clock In"}
                       </>
                     )}
                   </Button>
@@ -252,7 +354,7 @@ const Dashboard = () => {
                 >
                   <AreaChart
                     accessibilityLayer
-                    data={weeklyHours}
+                    data={weeklyData}
                     margin={{ left: 4, right: 4, top: 8 }}
                   >
                     <CartesianGrid vertical={false} strokeDasharray="2 2" />
@@ -285,11 +387,11 @@ const Dashboard = () => {
               eyebrow="Recent"
               title="Recent entries"
               columns={recentEntryColumns}
-              data={paginatedRecentEntries}
-              getRowId={(entry) => String(entry.id)}
+              data={paginatedEntries}
+              getRowId={(entry) => entry.id}
               pagination={recentPagination}
               onPaginationChange={setRecentPagination}
-              rowCount={recentEntries.length}
+              rowCount={allEntries.length}
               pageSizeOptions={[4, 8, 12]}
               emptyTitle="No recent entries"
               emptyDescription="Clock in to start a new timesheet entry."

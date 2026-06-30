@@ -11,11 +11,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const body = exception instanceof HttpException ? exception.getResponse() : { message: 'Internal server error' };
 
-    response.status(status).json({
-      statusCode: status,
-      path: request.url,
-      correlationId: request.correlationId,
-      error: typeof body === 'string' ? { message: body } : body
-    });
+    const rawMessage = typeof body === 'string' ? body : (body as Record<string, unknown>).message;
+    const message: string = Array.isArray(rawMessage)
+      ? String((rawMessage as unknown[])[0])
+      : String(rawMessage ?? 'An error occurred');
+
+    response
+      .status(status)
+      .header('X-Message', message.replace(/[\r\n]/g, ' '))
+      .json({
+        statusCode: status,
+        message,
+        path: request.url,
+        correlationId: request.correlationId,
+        error: typeof body === 'string' ? { message: body } : body,
+      });
   }
 }

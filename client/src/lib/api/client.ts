@@ -11,14 +11,15 @@ type ApiErrorBody = {
 }
 
 function extractApiErrorMessage(body: ApiErrorBody): string | undefined {
-  const nested = body.error?.message
-
-  if (nested) {
-    return Array.isArray(nested) ? nested[0] : nested
-  }
-
+  // Top-level message is the canonical field added by AllExceptionsFilter
   if (body.message) {
     return Array.isArray(body.message) ? body.message[0] : body.message
+  }
+
+  // Fallback: read from nested error object (legacy / non-filter responses)
+  const nested = body.error?.message
+  if (nested) {
+    return Array.isArray(nested) ? nested[0] : nested
   }
 
   return undefined

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
 import { ClockDto } from './dto/attendance.dto';
 import { AttendanceEventType } from './entities/attendance-event.entity';
@@ -24,24 +25,28 @@ export class AttendanceController {
 
   @Post('me/clock-in')
   @Permissions('attendance.clock_in.self')
+  @ResponseMessage('Clocked in successfully')
   clockIn(@CurrentUser() user: RequestUser, @Body() dto: ClockDto, @Req() request: AuthenticatedRequest) {
     return this.attendanceService.clockIn(user, dto, request);
   }
 
   @Post('me/clock-out')
   @Permissions('attendance.clock_out.self')
+  @ResponseMessage('Clocked out successfully')
   clockOut(@CurrentUser() user: RequestUser, @Body() dto: ClockDto, @Req() request: AuthenticatedRequest) {
     return this.attendanceService.clockOut(user, dto, request);
   }
 
   @Post('me/breaks/start')
   @Permissions('attendance.break.manage.self')
+  @ResponseMessage('Break started')
   breakStart(@CurrentUser() user: RequestUser, @Body() dto: ClockDto, @Req() request: AuthenticatedRequest) {
     return this.attendanceService.breakEvent(user, dto, request, AttendanceEventType.BREAK_START);
   }
 
   @Post('me/breaks/end')
   @Permissions('attendance.break.manage.self')
+  @ResponseMessage('Break ended')
   breakEnd(@CurrentUser() user: RequestUser, @Body() dto: ClockDto, @Req() request: AuthenticatedRequest) {
     return this.attendanceService.breakEvent(user, dto, request, AttendanceEventType.BREAK_END);
   }

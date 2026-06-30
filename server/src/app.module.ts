@@ -18,6 +18,7 @@ import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './modules/authorization/guards/permissions.guard';
 import { AuditLogInterceptor } from './modules/audit/audit-log.interceptor';
+import { ResponseMessageInterceptor } from './common/interceptors/response-message.interceptor';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { AuditLogInterceptor } from './modules/audit/audit-log.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
-    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor }
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: ResponseMessageInterceptor }
   ]
 })
 export class AppModule {}

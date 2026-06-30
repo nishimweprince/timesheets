@@ -4,6 +4,9 @@ import attendanceReducer from '../features/attendance.slice'
 import employeeManagementReducer from '../features/employee-management.slice'
 import schedulingReducer from '../features/scheduling.slice'
 import locationReducer from '../features/location.slice'
+import policiesReducer from '../features/policies.slice'
+import { onSessionChange, onSessionClear } from '@/lib/auth-session'
+import { clearAuth, setAuth } from '../features/auth.slice'
 
 export const store = configureStore({
   reducer: {
@@ -12,7 +15,16 @@ export const store = configureStore({
     employeeManagement: employeeManagementReducer,
     scheduling: schedulingReducer,
     location: locationReducer,
+    policies: policiesReducer,
   },
+})
+
+onSessionChange((payload) => {
+  store.dispatch(setAuth(payload))
+})
+
+onSessionClear(() => {
+  store.dispatch(clearAuth())
 })
 
 export type RootState = ReturnType<typeof store.getState>

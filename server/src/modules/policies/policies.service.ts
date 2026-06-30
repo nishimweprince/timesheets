@@ -56,6 +56,13 @@ export class PoliciesService {
     return this.workSites.find({ where: { organizationId: user.organizationId, active: true }, order: { name: 'ASC' } });
   }
 
+  findAssignments(user: RequestUser): Promise<AttendancePolicyAssignment[]> {
+    return this.assignments.find({
+      where: { organizationId: user.organizationId, active: true },
+      order: { createdAt: 'DESC' }
+    });
+  }
+
   async effectivePolicy(organizationId: string, employeeMembershipId: string): Promise<{ policy: AttendancePolicy | null; rules: AttendancePolicyRules }> {
     const employeeAssignment = await this.assignments.findOne({
       where: { organizationId, scope: PolicyAssignmentScope.EMPLOYEE, scopeId: employeeMembershipId, active: true }

@@ -13,6 +13,7 @@ import Dashboard from '../pages/Dashboard'
 import Timesheets from '../pages/timesheets/Timesheets'
 import Scheduling from '../pages/scheduling/Scheduling'
 import Team from '../pages/team/Team'
+import Policies from '../pages/policies/Policies'
 import Profile from '../pages/profile/Profile'
 
 const Router = () => {
@@ -27,6 +28,9 @@ const Router = () => {
 
       <Route element={<AuthGuard />}>
         <Route path="/auth/signout" element={<Signout />} />
+        <Route element={<PermissionGuard permission="policy.read" />}>
+          <Route path="/policies" element={<Policies />} />
+        </Route>
         <Route element={<LocationGuard />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/timesheets" element={<Timesheets />} />

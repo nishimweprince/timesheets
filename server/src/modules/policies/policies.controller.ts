@@ -21,6 +21,12 @@ export class PoliciesController {
     return this.policiesService.createPolicy(user, dto);
   }
 
+  @Get('attendance-policies/assignments')
+  @Permissions('policy.read')
+  findAssignments(@CurrentUser() user: RequestUser) {
+    return this.policiesService.findAssignments(user);
+  }
+
   @Post('attendance-policies/assignments')
   @Permissions('policy.manage')
   assign(@CurrentUser() user: RequestUser, @Body() dto: CreatePolicyAssignmentDto) {

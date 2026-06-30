@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   FileTextIcon,
   HomeIcon,
+  ShieldCheckIcon,
   UsersIcon,
 } from "lucide-react"
 
@@ -41,6 +42,7 @@ const mainNav: NavItem[] = [
 
 const operationsNav: NavItem[] = [
   { title: "Schedule", url: "/scheduling", icon: CalendarIcon },
+  { title: "Policies", url: "/policies", icon: ShieldCheckIcon },
   { title: "Reports", url: "#", icon: BarChart3Icon },
   { title: "Team", url: "/team", icon: UsersIcon },
 ]
@@ -51,12 +53,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const permissions = useAppSelector((state) => state.auth.user?.permissions ?? [])
   const canReadEmployees = permissions.includes("employee.read")
   const canManageShifts = permissions.includes("shift.create")
+  const canReadPolicies = permissions.includes("policy.read")
   const canReadReports = permissions.includes("report.read")
 
   const visibleOperationsNav = operationsNav
     .filter((item) => {
       if (item.title === "Team") return canReadEmployees
       if (item.title === "Schedule") return canManageShifts
+      if (item.title === "Policies") return canReadPolicies
       if (item.title === "Reports") return canReadReports
       return true
     })

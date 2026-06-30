@@ -1,25 +1,14 @@
 import { createSlice } from '@reduxjs/toolkit'
+import {
+  clearSessionStorage,
+  loadStoredUser,
+  readSessionTokens,
+  writeSessionStorage,
+  type AuthUser,
+  type TokenResponse,
+} from '@/lib/auth-session'
 
-export interface AuthUser {
-  userId: string
-  membershipId: string
-  organizationId: string
-  email: string
-  firstName?: string
-  lastName?: string
-  fullName?: string
-  membershipStatus?: 'PENDING' | 'ACTIVE' | 'INACTIVE'
-  primaryWorkSiteId?: string | null
-  roleNames?: string[]
-  permissions: string[]
-  sessionId?: string
-}
-
-export interface TokenResponse {
-  accessToken: string
-  refreshToken: string
-  user: AuthUser
-}
+export type { AuthUser, TokenResponse }
 
 type AuthState = {
   accessToken: string | null
@@ -28,23 +17,14 @@ type AuthState = {
   isAuthenticated: boolean
 }
 
-const ACCESS_TOKEN_KEY = 'tuza_access_token'
-const REFRESH_TOKEN_KEY = 'tuza_refresh_token'
-const USER_KEY = 'tuza_user'
-
 function loadFromStorage(): AuthState {
-  try {
-    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
-    const rawUser = localStorage.getItem(USER_KEY)
-    const user: AuthUser | null = rawUser ? (JSON.parse(rawUser) as AuthUser) : null
+  const { accessToken, refreshToken } = readSessionTokens()
+  const user = loadStoredUser()
 
-    if (accessToken && refreshToken && user) {
-      return { accessToken, refreshToken, user, isAuthenticated: true }
-    }
-  } catch {
-    // corrupted storage — fall through to empty state
+  if (accessToken && refreshToken && user) {
+    return { accessToken, refreshToken, user, isAuthenticated: true }
   }
+
   return { accessToken: null, refreshToken: null, user: null, isAuthenticated: false }
 }
 
@@ -57,18 +37,14 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken
       state.user = action.payload.user
       state.isAuthenticated = true
-      localStorage.setItem(ACCESS_TOKEN_KEY, action.payload.accessToken)
-      localStorage.setItem(REFRESH_TOKEN_KEY, action.payload.refreshToken)
-      localStorage.setItem(USER_KEY, JSON.stringify(action.payload.user))
+      writeSessionStorage(action.payload)
     },
     clearAuth: (state) => {
       state.accessToken = null
       state.refreshToken = null
       state.user = null
       state.isAuthenticated = false
-      localStorage.removeItem(ACCESS_TOKEN_KEY)
-      localStorage.removeItem(REFRESH_TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      clearSessionStorage()
     },
   },
 })

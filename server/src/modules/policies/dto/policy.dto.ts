@@ -38,6 +38,21 @@ export class CreatePolicyDto {
   rules: PolicyRulesDto;
 }
 
+export class UpdatePolicyDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyRulesDto)
+  rules?: PolicyRulesDto;
+}
+
 export class CreatePolicyAssignmentDto {
   @IsUUID()
   policyId: string;

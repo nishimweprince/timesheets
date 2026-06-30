@@ -85,6 +85,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
           >
             <SelectPrimitive.Trigger
               ref={ref}
+              data-slot="select-trigger"
               aria-invalid={!!error}
               className={cn(
                 'flex h-10 w-full items-center justify-between rounded-none border border-field-border bg-field px-3 text-left text-sm text-foreground outline-none transition-colors data-[placeholder]:text-placeholder focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20',
@@ -99,10 +100,11 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
 
             <SelectPrimitive.Portal>
               <SelectPrimitive.Content
+                data-slot="select-content"
                 position="popper"
                 sideOffset={4}
                 className={cn(
-                  'z-[10000] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-none border border-field-border bg-popover text-popover-foreground shadow-sm',
+                  'z-[500000] max-h-72 min-w-(--radix-select-trigger-width) overflow-hidden rounded-none border border-field-border bg-popover text-popover-foreground shadow-sm',
                   contentClassName,
                 )}
               >
@@ -121,6 +123,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                     filteredOptions.map((option) => (
                       <SelectPrimitive.Item
                         key={option.value}
+                        data-slot="select-item"
                         value={option.value}
                         disabled={option.disabled}
                         className="relative flex h-8 cursor-pointer select-none items-center rounded-none px-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-muted data-[state=checked]:text-primary data-[disabled]:opacity-50"

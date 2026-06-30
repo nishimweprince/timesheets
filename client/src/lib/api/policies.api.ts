@@ -71,6 +71,12 @@ export type CreatePolicyPayload = {
   rules: AttendancePolicyRules
 }
 
+export type UpdatePolicyPayload = {
+  name: string
+  rules: AttendancePolicyRules
+  active: boolean
+}
+
 export type CreatePolicyAssignmentPayload = {
   policyId: string
   scope: PolicyAssignmentScope
@@ -105,6 +111,10 @@ export const policiesApi = {
 
   createPolicy(body: CreatePolicyPayload): Promise<AttendancePolicy> {
     return apiRequest<AttendancePolicy>('/attendance-policies', { method: 'POST', body })
+  },
+
+  updatePolicy(policyId: string, body: UpdatePolicyPayload): Promise<AttendancePolicy> {
+    return apiRequest<AttendancePolicy>(`/attendance-policies/${policyId}`, { method: 'PATCH', body })
   },
 
   assignments(): Promise<AttendancePolicyAssignment[]> {

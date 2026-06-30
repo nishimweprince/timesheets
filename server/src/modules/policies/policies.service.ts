@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { RequestUser } from '../../common/types/authenticated-request';
 import { AttendancePolicy, AttendancePolicyRules, PolicyEnforcement } from './entities/attendance-policy.entity';
 import { AttendancePolicyAssignment, PolicyAssignmentScope } from './entities/attendance-policy-assignment.entity';
 import { WorkSite } from './entities/work-site.entity';
-import { CreatePolicyAssignmentDto, CreatePolicyDto, CreateWorkSiteDto } from './dto/policy.dto';
+import { CreatePolicyAssignmentDto, CreatePolicyDto, CreateWorkSiteDto, UpdatePolicyDto } from './dto/policy.dto';
 
 export const DEFAULT_POLICY_RULES: AttendancePolicyRules = {
   requireClockInPhoto: false,
@@ -28,6 +28,21 @@ export class PoliciesService {
 
   async createPolicy(user: RequestUser, dto: CreatePolicyDto): Promise<AttendancePolicy> {
     return this.policies.save(this.policies.create({ organizationId: user.organizationId, name: dto.name, rules: dto.rules }));
+  }
+
+  async updatePolicy(user: RequestUser, policyId: string, dto: UpdatePolicyDto): Promise<AttendancePolicy> {
+    const policy = await this.findPolicy(user.organizationId, policyId);
+    if (dto.name !== undefined) policy.name = dto.name;
+    if (dto.active !== undefined) policy.active = dto.active;
+    if (dto.rules !== undefined) policy.rules = dto.rules;
+    try {
+      return await this.policies.save(policy);
+    } catch (error) {
+      if (this.isUniqueNameViolation(error)) {
+        throw new ConflictException('A policy with this name already exists');
+      }
+      throw error;
+    }
   }
 
   findPolicies(user: RequestUser): Promise<AttendancePolicy[]> {
@@ -88,7 +103,21 @@ export class PoliciesService {
   }
 
   private async ensurePolicy(organizationId: string, policyId: string): Promise<void> {
+    await this.findPolicy(organizationId, policyId);
+  }
+
+  private async findPolicy(organizationId: string, policyId: string): Promise<AttendancePolicy> {
     const policy = await this.policies.findOne({ where: { id: policyId, organizationId } });
     if (!policy) throw new NotFoundException('Attendance policy not found');
+    return policy;
+  }
+
+  private isUniqueNameViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === '23505'
+    );
   }
 }

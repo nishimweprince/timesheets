@@ -6,6 +6,7 @@ import {
   type CreatePolicyAssignmentPayload,
   type CreatePolicyPayload,
   type CreateWorkSitePayload,
+  type UpdatePolicyPayload,
   type WorkSite,
 } from '@/lib/api/policies.api'
 import type { PaginatedResult, PaginationParams } from '@/lib/api/pagination'
@@ -35,6 +36,7 @@ interface PoliciesState {
     policiesPage: LoadStatus
     workSitesPage: LoadStatus
     createPolicy: LoadStatus
+    updatePolicy: LoadStatus
     assignPolicy: LoadStatus
     createWorkSite: LoadStatus
   }
@@ -54,6 +56,7 @@ const initialState: PoliciesState = {
     policiesPage: 'idle',
     workSitesPage: 'idle',
     createPolicy: 'idle',
+    updatePolicy: 'idle',
     assignPolicy: 'idle',
     createWorkSite: 'idle',
   },
@@ -93,6 +96,12 @@ export const fetchWorkSitesPage = createAsyncThunk(
 export const createPolicy = createAsyncThunk(
   'policies/createPolicy',
   (payload: CreatePolicyPayload) => policiesApi.createPolicy(payload),
+)
+
+export const updatePolicy = createAsyncThunk(
+  'policies/updatePolicy',
+  ({ policyId, payload }: { policyId: string; payload: UpdatePolicyPayload }) =>
+    policiesApi.updatePolicy(policyId, payload),
 )
 
 export const assignPolicy = createAsyncThunk(
@@ -186,6 +195,18 @@ const policiesSlice = createSlice({
       })
       .addCase(createPolicy.rejected, (state) => {
         state.status.createPolicy = 'error'
+      })
+
+      .addCase(updatePolicy.pending, (state) => {
+        state.status.updatePolicy = 'loading'
+      })
+      .addCase(updatePolicy.fulfilled, (state, action) => {
+        state.status.updatePolicy = 'idle'
+        upsertById(state.policies, action.payload)
+        upsertById(state.policiesPage.data, action.payload)
+      })
+      .addCase(updatePolicy.rejected, (state) => {
+        state.status.updatePolicy = 'error'
       })
 
       .addCase(assignPolicy.pending, (state) => {

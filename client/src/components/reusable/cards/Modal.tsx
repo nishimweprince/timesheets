@@ -8,6 +8,31 @@ import {
 } from '@/components/ui/dialog';
 import { DialogDescription } from '@radix-ui/react-dialog';
 
+function isNestedPortalInteraction(target: HTMLElement): boolean {
+  return Boolean(
+    target.closest('[data-radix-popper-content-wrapper]') ||
+    target.closest('[data-slot="select-content"]') ||
+    target.closest('[data-slot="select-item"]') ||
+    target.closest('[data-slot="select-trigger"]') ||
+    target.closest('[role="listbox"]') ||
+    target.closest('[data-radix-select-content]') ||
+    target.closest('[data-radix-select-trigger]') ||
+    target.closest('[data-radix-select-viewport]') ||
+    target.closest('[data-radix-select-item]') ||
+    target.closest('[data-radix-popover-content]') ||
+    target.closest('[data-radix-popover-trigger]') ||
+    target.closest('button[role="combobox"]') ||
+    target.closest('button[aria-expanded]'),
+  );
+}
+
+function preventNestedPortalDismiss(event: { target: EventTarget | null; preventDefault: () => void }) {
+  const target = event.target;
+  if (target instanceof HTMLElement && isNestedPortalInteraction(target)) {
+    event.preventDefault();
+  }
+}
+
 interface ModalProps {
   isOpen: boolean;
   children: ReactNode;
@@ -35,11 +60,13 @@ const JSX_MODAL: FC<ModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className={`z-[9000] min-w-[45vw] ${className} overflow-y-auto max-h-[90vh]`}
+        className={`z-9000 !pointer-events-auto min-w-[45vw] ${className ?? ''} overflow-y-auto max-h-[90vh]`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
         }}
+        onInteractOutside={preventNestedPortalDismiss}
+        onPointerDownOutside={preventNestedPortalDismiss}
       >
         <DialogHeader>
           <DialogTitle

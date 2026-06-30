@@ -3,6 +3,7 @@ import {
   type CreatePolicyAssignmentPayload,
   type CreatePolicyPayload,
   type CreateWorkSitePayload,
+  type UpdatePolicyPayload,
 } from '@/lib/api/policies.api'
 
 export function validatePolicyName(name: string): string | null {
@@ -20,6 +21,10 @@ export function validateWorkSiteName(name: string): string | null {
 }
 
 export function validateCreatePolicyPayload(payload: CreatePolicyPayload): string | null {
+  return validatePolicyName(payload.name)
+}
+
+export function validateUpdatePolicyPayload(payload: UpdatePolicyPayload): string | null {
   return validatePolicyName(payload.name)
 }
 

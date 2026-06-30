@@ -4,6 +4,7 @@ import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
 import {
   Building2Icon,
+  EditIcon,
   LinkIcon,
   MapPinIcon,
   PlusIcon,
@@ -37,12 +38,14 @@ import {
   validateAssignPolicyPayload,
   validateCreatePolicyPayload,
   validateCreateWorkSitePayload,
+  validateUpdatePolicyPayload,
 } from "@/pages/policies/policies-validation"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
   assignPolicy,
   createPolicy,
   createWorkSite,
+  updatePolicy,
   fetchAssignments,
   fetchPolicies,
   fetchPoliciesPage,
@@ -95,6 +98,7 @@ function PoliciesPage() {
     pageIndex: 0,
     pageSize: 10,
   })
+  const [editingPolicy, setEditingPolicy] = React.useState<AttendancePolicy | null>(null)
 
   React.useEffect(() => {
     if (activeTab !== "policies") return
@@ -195,7 +199,32 @@ function PoliciesPage() {
       ),
       meta: { align: "right", width: "8rem" },
     },
-  ], [])
+    ...(canManage
+      ? [
+          {
+            id: "actions",
+            header: "",
+            cell: ({ row }: { row: { original: AttendancePolicy } }) => (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit policy"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setEditingPolicy(row.original)
+                  }}
+                >
+                  <EditIcon />
+                </Button>
+              </div>
+            ),
+            meta: { align: "right" as const, width: "4rem" },
+          },
+        ]
+      : []),
+  ], [canManage])
 
   const workSiteColumns = React.useMemo<ColumnDef<WorkSite>[]>(() => [
     {
@@ -323,6 +352,7 @@ function PoliciesPage() {
                 pageSizeOptions={[10, 25, 50]}
                 isLoading={status.policiesPage === "loading" && policiesPage.data.length === 0}
                 isFetching={status.policiesPage === "loading" && policiesPage.data.length > 0}
+                onRowClick={canManage ? (row) => setEditingPolicy(row.original) : undefined}
                 emptyTitle="No policies yet"
                 emptyDescription="Create a policy to set photo, location, and exception handling rules."
                 emptyAction={canManage ? <CreatePolicyDialog onMutated={refresh} /> : undefined}
@@ -373,6 +403,14 @@ function PoliciesPage() {
           </div>
         </div>
       </SidebarInset>
+
+      {editingPolicy ? (
+        <EditPolicyDialog
+          policy={editingPolicy}
+          onClose={() => setEditingPolicy(null)}
+          onMutated={refresh}
+        />
+      ) : null}
     </SidebarProvider>
   )
 }
@@ -401,6 +439,81 @@ function SummaryCard({
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
+  )
+}
+
+function EditPolicyDialog({
+  policy,
+  onClose,
+  onMutated,
+}: {
+  policy: AttendancePolicy
+  onClose: () => void
+  onMutated?: () => void
+}) {
+  const dispatch = useAppDispatch()
+  const isLoading = useAppSelector((state) => state.policies.status.updatePolicy === "loading")
+  const [name, setName] = React.useState(policy.name)
+  const [active, setActive] = React.useState(policy.active)
+  const [rules, setRules] = React.useState<AttendancePolicyRules>(policy.rules)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const payload = { name: name.trim(), rules, active }
+    const validationError = validateUpdatePolicyPayload(payload)
+    if (validationError) {
+      setError(validationError)
+      toast.error(validationError)
+      return
+    }
+
+    try {
+      await dispatch(updatePolicy({ policyId: policy.id, payload })).unwrap()
+      toast.success("Policy updated")
+      onMutated?.()
+      onClose()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      heading="Edit attendance policy"
+      description="Update the rules that govern clock-in validation and exception handling."
+      className="sm:min-w-0 sm:max-w-2xl"
+      headingClassName="normal-case tracking-tight text-[13px] font-semibold"
+      descriptionClassName="text-sm text-muted-foreground"
+    >
+      <form onSubmit={submit} className="mt-4 space-y-5">
+        <Input
+          label="Policy name"
+          required
+          value={name}
+          error={error ?? undefined}
+          onChange={(event) => {
+            setName(event.target.value)
+            if (error) setError(null)
+          }}
+          placeholder="e.g. Clinical floor — strict"
+        />
+        <Input
+          type="checkbox"
+          label="Active"
+          checked={active}
+          onCheckedChange={setActive}
+        />
+        <PolicyRulesForm rules={rules} onChange={setRules} />
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isLoading || !name.trim()}>
+            {isLoading ? "Saving" : "Save changes"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

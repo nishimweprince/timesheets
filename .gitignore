@@ -1,0 +1,28 @@
+# AGENTS
+.claude
+.cursor
+.vscode
+.mcp
+.vscode
+.cursor
+.claude
+.mcp
+.vscode
+.cursor
+.claude
+.mcp
+
+# AGENT DIRECTORIES
+.agents
+.agents-lock.json
+.agents-lock.json.lock
+.agents-lock.json.lock.lock
+.agents-lock.json.lock.lock.lock
+.agents-lock.json.lock.lock.lock.lock
+.agents-lock.json.lock.lock.lock.lock.lock
+.agents-lock.json.lock.lock.lock.lock.lock.lock
+.agents-lock.json.lock.lock.lock.lock.lock.lock.lock
+.agents-lock.json.lock.lock.lock.lock.lock.lock.lock.lock
+.claude/
+.bob/
+.cursor/

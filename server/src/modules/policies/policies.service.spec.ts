@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { MembershipStatus } from '../organizations/entities/organization-membership.entity';
 import { RequestUser } from '../../common/types/authenticated-request';
 import { PolicyAssignmentScope } from './entities/attendance-policy-assignment.entity';
@@ -43,7 +43,19 @@ function createHarness() {
       lastUpdatedById: null
     })),
     save: jest.fn(async (entity: AttendancePolicy) => {
-      policies.push(entity);
+      const duplicate = policies.find(
+        (item) =>
+          item.id !== entity.id &&
+          item.organizationId === entity.organizationId &&
+          item.name === entity.name
+      );
+      if (duplicate) {
+        const error = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+        throw error;
+      }
+      const index = policies.findIndex((item) => item.id === entity.id);
+      if (index >= 0) policies[index] = entity;
+      else policies.push(entity);
       return entity;
     }),
     find: jest.fn(async ({ where, order }: { where: { organizationId: string }; order: { createdAt: string } }) =>
@@ -235,5 +247,55 @@ describe('PoliciesService org-scoped persistence', () => {
         scope: PolicyAssignmentScope.ORGANIZATION
       })
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('updates name, rules, and active status for an existing policy', async () => {
+    const { service } = createHarness();
+
+    const createdPolicy = await service.createPolicy(actor, {
+      name: 'Clinical strict',
+      rules: DEFAULT_POLICY_RULES
+    });
+
+    const updatedPolicy = await service.updatePolicy(actor, createdPolicy.id, {
+      name: 'Clinical relaxed',
+      active: false,
+      rules: {
+        ...DEFAULT_POLICY_RULES,
+        requireClockInPhoto: true,
+        unplannedClockIn: PolicyEnforcement.BLOCK
+      }
+    });
+
+    expect(updatedPolicy.id).toBe(createdPolicy.id);
+    expect(updatedPolicy.name).toBe('Clinical relaxed');
+    expect(updatedPolicy.active).toBe(false);
+    expect(updatedPolicy.rules.requireClockInPhoto).toBe(true);
+    expect(updatedPolicy.rules.unplannedClockIn).toBe(PolicyEnforcement.BLOCK);
+  });
+
+  it('rejects update when the policy does not exist in the organization', async () => {
+    const { service } = createHarness();
+
+    await expect(
+      service.updatePolicy(actor, 'missing-policy', { name: 'Renamed policy' })
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects update when the policy name conflicts within the organization', async () => {
+    const { service } = createHarness();
+
+    const firstPolicy = await service.createPolicy(actor, {
+      name: 'Floor A',
+      rules: DEFAULT_POLICY_RULES
+    });
+    const secondPolicy = await service.createPolicy(actor, {
+      name: 'Floor B',
+      rules: DEFAULT_POLICY_RULES
+    });
+
+    await expect(
+      service.updatePolicy(actor, secondPolicy.id, { name: firstPolicy.name })
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

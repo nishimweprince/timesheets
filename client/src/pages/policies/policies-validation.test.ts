@@ -8,6 +8,7 @@ import {
   validateCreatePolicyPayload,
   validateCreateWorkSitePayload,
   validatePolicyName,
+  validateUpdatePolicyPayload,
 } from './policies-validation'
 
 describe('policies-validation (shipped form guards)', () => {
@@ -16,6 +17,9 @@ describe('policies-validation (shipped form guards)', () => {
     expect(validateCreatePolicyPayload({ name: ' ', rules: DEFAULT_POLICY_RULES })).toBe(
       'Policy name is required',
     )
+    expect(
+      validateUpdatePolicyPayload({ name: ' ', rules: DEFAULT_POLICY_RULES, active: true }),
+    ).toBe('Policy name is required')
   })
 
   it('rejects blank work site names before submit', () => {

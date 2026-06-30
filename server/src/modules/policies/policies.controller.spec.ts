@@ -24,6 +24,7 @@ describe('PoliciesController', () => {
   const service = {
     findPolicies: jest.fn(),
     createPolicy: jest.fn(),
+    updatePolicy: jest.fn(),
     findAssignments: jest.fn(),
     assignPolicy: jest.fn(),
     findWorkSites: jest.fn(),
@@ -68,6 +69,7 @@ describe('PoliciesController', () => {
 
     service.findPolicies.mockResolvedValue([policy]);
     service.createPolicy.mockResolvedValue(policy);
+    service.updatePolicy.mockResolvedValue({ ...policy, name: 'Updated policy' });
     service.findAssignments.mockResolvedValue([assignment]);
     service.assignPolicy.mockResolvedValue(assignment);
     service.findWorkSites.mockResolvedValue([workSite]);
@@ -77,6 +79,9 @@ describe('PoliciesController', () => {
     await expect(
       controller.createPolicy(actor, { name: 'Default', rules: DEFAULT_POLICY_RULES })
     ).resolves.toEqual(policy);
+    await expect(
+      controller.updatePolicy(actor, policy.id, { name: 'Updated policy', active: false })
+    ).resolves.toEqual({ ...policy, name: 'Updated policy' });
     await expect(controller.findAssignments(actor)).resolves.toEqual([assignment]);
     await expect(
       controller.assign(actor, { policyId: policy.id, scope: PolicyAssignmentScope.ORGANIZATION })
@@ -90,6 +95,10 @@ describe('PoliciesController', () => {
     expect(service.createPolicy).toHaveBeenCalledWith(actor, {
       name: 'Default',
       rules: DEFAULT_POLICY_RULES
+    });
+    expect(service.updatePolicy).toHaveBeenCalledWith(actor, policy.id, {
+      name: 'Updated policy',
+      active: false
     });
     expect(service.findAssignments).toHaveBeenCalledWith(actor);
     expect(service.assignPolicy).toHaveBeenCalledWith(actor, {

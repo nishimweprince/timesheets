@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { RequestUser } from '../../common/types/authenticated-request';
-import { CreatePolicyAssignmentDto, CreatePolicyDto, CreateWorkSiteDto } from './dto/policy.dto';
+import { CreatePolicyAssignmentDto, CreatePolicyDto, CreateWorkSiteDto, UpdatePolicyDto } from './dto/policy.dto';
 import { PoliciesService } from './policies.service';
 
 @Controller()
@@ -19,6 +20,17 @@ export class PoliciesController {
   @Permissions('policy.manage')
   createPolicy(@CurrentUser() user: RequestUser, @Body() dto: CreatePolicyDto) {
     return this.policiesService.createPolicy(user, dto);
+  }
+
+  @Patch('attendance-policies/:policyId')
+  @Permissions('policy.manage')
+  @ResponseMessage('Policy updated')
+  updatePolicy(
+    @CurrentUser() user: RequestUser,
+    @Param('policyId') policyId: string,
+    @Body() dto: UpdatePolicyDto
+  ) {
+    return this.policiesService.updatePolicy(user, policyId, dto);
   }
 
   @Get('attendance-policies/assignments')

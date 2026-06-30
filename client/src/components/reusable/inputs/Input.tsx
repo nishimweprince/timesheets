@@ -90,7 +90,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       return (
         <label
           className={cn(
-            'group/field flex w-fit items-center gap-2 text-xs text-foreground',
+            'group/field flex w-fit items-center gap-2 text-sm text-foreground',
             containerClassName,
           )}
         >
@@ -106,7 +106,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className="rounded-none border-field-border"
           />
           {label ? (
-            <span className={cn('text-xs font-medium text-foreground', labelClassName)}>
+            <span className={cn('text-sm font-medium text-foreground', labelClassName)}>
               {label}
             </span>
           ) : null}
@@ -118,7 +118,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       return (
         <label
           className={cn(
-            'flex w-fit items-center gap-2 text-xs text-foreground',
+            'flex w-fit items-center gap-2 text-sm text-foreground',
             containerClassName,
           )}
         >
@@ -135,7 +135,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {label ? (
-            <span className={cn('text-xs font-medium text-foreground', labelClassName)}>
+            <span className={cn('text-sm font-medium text-foreground', labelClassName)}>
               {label}
             </span>
           ) : null}
@@ -176,7 +176,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 disabled={disabled || readOnly}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  'flex h-10 w-full items-center justify-center rounded-none border border-field-border bg-field px-3 text-xs font-medium text-foreground outline-none transition-colors hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 disabled:opacity-60',
+                  'flex h-10 w-full items-center justify-center rounded-none border border-field-border bg-field px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 disabled:opacity-60',
                   className,
                 )}
               >
@@ -262,7 +262,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               <InputGroupAddon align="inline-start" className="text-muted-foreground">
                 {PrefixIcon ? <PrefixIcon className="size-4" /> : null}
                 {prefixText ? (
-                  <InputGroupText className="text-xs">{prefixText}</InputGroupText>
+                  <InputGroupText className="text-sm">{prefixText}</InputGroupText>
                 ) : null}
               </InputGroupAddon>
             ) : null}

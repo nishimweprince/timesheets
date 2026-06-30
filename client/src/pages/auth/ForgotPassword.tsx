@@ -45,7 +45,7 @@ const ForgotPassword = () => {
               <MailCheckIcon className="size-5" />
             </span>
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl text-foreground">Check your inbox</h2>
+              <h2 className="text-lg text-foreground">Check your inbox</h2>
               <p className="text-sm text-muted-foreground">
                 If that email is registered, you'll receive a password reset link shortly. The
                 link expires in 15 minutes.
@@ -68,7 +68,7 @@ const ForgotPassword = () => {
     <AuthShell showLeftPanel={false}>
       <section className="flex w-full flex-col gap-7">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-foreground">Forgot password?</h2>
+          <h2 className="text-lg font-semibold text-foreground">Forgot password?</h2>
           <p className="text-sm text-muted-foreground">
             Enter your email and we'll send you a link to reset your password.
           </p>

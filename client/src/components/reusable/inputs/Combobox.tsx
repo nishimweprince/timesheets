@@ -123,7 +123,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder={searchPlaceholder}
                 className={cn(
-                  'mb-1 h-8 w-full rounded-none border border-field-border bg-field px-2 text-xs outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/30',
+                  'mb-1 h-8 w-full rounded-none border border-field-border bg-field px-2 text-sm outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/30',
                   inputClassName,
                 )}
               />
@@ -135,7 +135,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                       type="button"
                       disabled={option.disabled}
                       className={cn(
-                        'flex h-8 w-full items-center gap-2 rounded-none px-2 text-left text-xs outline-none transition-colors hover:bg-muted focus:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
+                        'flex h-8 w-full items-center gap-2 rounded-none px-2 text-left text-sm outline-none transition-colors hover:bg-muted focus:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
                         optionsClassName,
                       )}
                       onClick={() => {
@@ -154,7 +154,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                     </button>
                   ))
                 ) : (
-                  <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  <div className="px-2 py-3 text-center text-sm text-muted-foreground">
                     No option found.
                   </div>
                 )}

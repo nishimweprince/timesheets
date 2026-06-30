@@ -9,21 +9,21 @@ type AuthShellProps = {
 const DefaultLeftPanel = () => (
   <>
     <div className="relative z-10 flex flex-col gap-4">
-      <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
+      <p className="text-sm font-medium tracking-[0.2em] text-primary uppercase">
         Tuza Health
       </p>
       <div className="flex max-w-sm flex-col gap-2">
         <h1 className="text-lg font-medium text-foreground">
           Institution workforce management
         </h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Secure access for hospital and clinic staff to manage attendance,
           shifts, and timesheets.
         </p>
       </div>
     </div>
 
-    <p className="relative z-10 mt-10 text-xs text-muted-foreground md:mt-0">
+    <p className="relative z-10 mt-10 text-sm text-muted-foreground md:mt-0">
       © {new Date().getFullYear()} Tuza Health
     </p>
   </>

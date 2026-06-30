@@ -71,7 +71,7 @@ const Login = () => {
     <AuthShell>
       <section className="flex w-full flex-col gap-7">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-foreground">Sign in</h2>
+          <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
           <p className="text-sm text-muted-foreground">
             Enter your credentials to access the timesheet portal.
           </p>

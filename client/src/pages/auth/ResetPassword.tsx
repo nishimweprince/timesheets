@@ -49,7 +49,7 @@ const ResetPassword = () => {
     <AuthShell showLeftPanel={false}>
       <section className="flex w-full flex-col gap-7">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-foreground">Set new password</h2>
+          <h2 className="text-lg font-semibold text-foreground">Set new password</h2>
           <p className="text-sm text-muted-foreground">
             Choose a strong password for your Tuza Health account.
           </p>

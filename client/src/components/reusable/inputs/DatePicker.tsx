@@ -118,7 +118,7 @@ const DatePicker = ({
                 onChange={(year) =>
                   setViewDate((current) => new Date(Number(year), current.getMonth(), 1))
                 }
-                className="h-8 px-2 text-xs"
+                className="h-8 px-2 text-sm"
               />
               <Select
                 value={String(viewDate.getMonth())}
@@ -129,7 +129,7 @@ const DatePicker = ({
                 onChange={(month) =>
                   setViewDate((current) => new Date(current.getFullYear(), Number(month), 1))
                 }
-                className="h-8 px-2 text-xs"
+                className="h-8 px-2 text-sm"
               />
             </div>
             <Button
@@ -163,7 +163,7 @@ const DatePicker = ({
                   disabled={disabledDay}
                   onClick={() => selectDate(date)}
                   className={cn(
-                    'h-8 rounded-none text-xs outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
+                    'h-8 rounded-none text-sm outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
                     !currentMonth && 'text-muted-foreground/50',
                     selected && 'bg-primary text-primary-foreground hover:bg-primary',
                   )}

@@ -112,7 +112,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Search"
-                      className="h-8 w-full rounded-none border border-field-border bg-field px-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                      className="h-8 w-full rounded-none border border-field-border bg-field px-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
                 ) : null}
@@ -123,7 +123,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                         key={option.value}
                         value={option.value}
                         disabled={option.disabled}
-                        className="relative flex h-8 cursor-pointer select-none items-center rounded-none px-2 pr-8 text-xs outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-muted data-[state=checked]:text-primary data-[disabled]:opacity-50"
+                        className="relative flex h-8 cursor-pointer select-none items-center rounded-none px-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-muted data-[state=checked]:text-primary data-[disabled]:opacity-50"
                       >
                         <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                         <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex items-center">
@@ -132,7 +132,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       </SelectPrimitive.Item>
                     ))
                   ) : (
-                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                    <div className="px-2 py-3 text-center text-sm text-muted-foreground">
                       No option found.
                     </div>
                   )}

@@ -1,6 +1,29 @@
 import { store } from '@/states/store/store'
 import { clearAuth, setAuth } from '@/states/features/auth.slice'
 
+type ApiErrorBody = {
+  message?: string | string[]
+  error?: {
+    message?: string | string[]
+    error?: string
+    statusCode?: number
+  }
+}
+
+function extractApiErrorMessage(body: ApiErrorBody): string | undefined {
+  const nested = body.error?.message
+
+  if (nested) {
+    return Array.isArray(nested) ? nested[0] : nested
+  }
+
+  if (body.message) {
+    return Array.isArray(body.message) ? body.message[0] : body.message
+  }
+
+  return undefined
+}
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
 export class ApiError extends Error {
@@ -85,9 +108,10 @@ export async function apiRequest<T>(
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`
     try {
-      const err = (await res.json()) as { message?: string | string[] }
-      if (err.message) {
-        message = Array.isArray(err.message) ? err.message[0] : err.message
+      const body = (await res.json()) as Parameters<typeof extractApiErrorMessage>[0]
+      const extracted = extractApiErrorMessage(body)
+      if (extracted) {
+        message = extracted
       }
     } catch {
       // ignore JSON parse errors

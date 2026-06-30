@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 
 import AuthShell from '@/components/auth/AuthShell';
@@ -15,7 +14,7 @@ import {
   type LoginFormValues,
 } from '@/lib/validations/auth';
 import { authApi } from '@/lib/api/auth.api';
-import { ApiError } from '@/lib/api/client';
+import { showApiErrorToast } from '@/lib/api/errors';
 import { setAuth } from '@/states/features/auth.slice';
 import { useAppDispatch } from '@/states/store/hooks.state';
 
@@ -62,9 +61,7 @@ const Login = () => {
 
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Something went wrong';
-      toast.error('Sign in failed', { description: message });
+      showApiErrorToast(err, 'login');
     } finally {
       setIsSubmitting(false);
     }

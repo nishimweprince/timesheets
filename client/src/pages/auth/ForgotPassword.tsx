@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
 import { ArrowLeftIcon, MailCheckIcon } from 'lucide-react'
 
 import AuthShell from '@/components/auth/AuthShell'
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { forgotPasswordSchema, type ForgotPasswordFormValues } from '@/lib/validations/auth'
 import { authApi } from '@/lib/api/auth.api'
-import { ApiError } from '@/lib/api/client'
+import { showApiErrorToast } from '@/lib/api/errors'
 
 const ForgotPassword = () => {
   const [submitted, setSubmitted] = useState(false)
@@ -31,8 +30,7 @@ const ForgotPassword = () => {
       await authApi.forgotPassword({ email: data.email })
       setSubmitted(true)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Something went wrong'
-      toast.error('Request failed', { description: message })
+      showApiErrorToast(err, 'forgot-password')
     } finally {
       setIsSubmitting(false)
     }

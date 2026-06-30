@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
 import { ArrowLeftIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 
 import AuthShell from '@/components/auth/AuthShell'
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { resetPasswordSchema, type ResetPasswordFormValues } from '@/lib/validations/auth'
 import { authApi } from '@/lib/api/auth.api'
-import { ApiError } from '@/lib/api/client'
+import { showApiErrorToast, showAuthSuccessToast } from '@/lib/api/errors'
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams()
@@ -37,11 +36,10 @@ const ResetPassword = () => {
     setIsSubmitting(true)
     try {
       await authApi.resetPassword({ token, password: data.password })
-      toast.success('Password reset', { description: 'You can now sign in with your new password.' })
+      showAuthSuccessToast('resetPasswordSuccess')
       setTimeout(() => navigate('/auth/login', { replace: true }), 1500)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Something went wrong'
-      toast.error('Reset failed', { description: message })
+      showApiErrorToast(err, 'reset-password')
     } finally {
       setIsSubmitting(false)
     }

@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import { LogOutIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { authApi } from '@/lib/api/auth.api'
+import { showApiErrorToast, showAuthSuccessToast } from '@/lib/api/errors'
 import { clearAuth } from '@/states/features/auth.slice'
 import { useAppDispatch, useAppSelector } from '@/states/store/hooks.state'
 
@@ -15,10 +15,12 @@ const Dashboard = () => {
   const handleLogout = async () => {
     try {
       await authApi.logout()
+      showAuthSuccessToast('logoutSuccess')
+    } catch (err) {
+      showApiErrorToast(err, 'logout')
     } finally {
       dispatch(clearAuth())
       navigate('/auth/login', { replace: true })
-      toast.success('Signed out successfully')
     }
   }
 

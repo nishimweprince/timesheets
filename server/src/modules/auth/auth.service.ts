@@ -36,7 +36,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<TokenResponse> {
     const user = await this.users.findOne({ where: { email: dto.email.toLowerCase(), active: true } });
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Username or password is incorrect');
     }
 
     const memberships = await this.memberships.find({

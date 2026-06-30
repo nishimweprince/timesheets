@@ -8,6 +8,7 @@ import ForgotPassword from '../pages/auth/ForgotPassword'
 import Login from '../pages/auth/Login'
 import Onboarding from '../pages/auth/Onboarding'
 import ResetPassword from '../pages/auth/ResetPassword'
+import Signout from '../pages/auth/Signout'
 import Dashboard from '../pages/Dashboard'
 import Timesheets from '../pages/timesheets/Timesheets'
 import Scheduling from '../pages/scheduling/Scheduling'
@@ -25,6 +26,7 @@ const Router = () => {
       </Route>
 
       <Route element={<AuthGuard />}>
+        <Route path="/auth/signout" element={<Signout />} />
         <Route element={<LocationGuard />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/timesheets" element={<Timesheets />} />

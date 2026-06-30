@@ -1,13 +1,9 @@
 "use client"
 
 import { Link } from "react-router-dom"
-import { LogOutIcon, UserIcon } from "lucide-react"
+import { ChevronDownIcon, LogOutIcon, UserIcon } from "lucide-react"
 
-import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-import { clearAuth } from "@/states/features/auth.slice"
-import { authApi } from "@/lib/api/auth.api"
-import { showApiErrorToast, showAuthSuccessToast } from "@/lib/api/errors"
-import { useNavigate } from "react-router-dom"
+import { useAppSelector } from "@/states/store/hooks.state"
 
 import {
   SidebarTrigger,
@@ -25,35 +21,22 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function SiteHeader() {
-  const dispatch = useAppDispatch()
-  const navigate = useNavigate()
   const user = useAppSelector((state) => state.auth.user)
-
-  const handleLogout = async () => {
-    try {
-      await authApi.logout()
-      showAuthSuccessToast("logoutSuccess")
-    } catch (err) {
-      showApiErrorToast(err, "logout")
-    } finally {
-      dispatch(clearAuth())
-      navigate("/auth/login", { replace: true })
-    }
-  }
 
   const userInitials =
     user?.email?.slice(0, 2).toUpperCase() || "TH"
+  const userName = user?.email?.split("@")[0]
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 transition-[width,height] ease-linear">
       <div className="flex flex-1 items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
+        <SidebarTrigger className="-ml-1 cursor-pointer" />
         <Separator
           orientation="vertical"
           className="mr-2 data-[orientation=vertical]:h-4"
         />
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm tracking-tight">Dashboard</span>
+          <span className="text-[13px] font-semibold tracking-tight text-foreground">Dashboard</span>
         </div>
       </div>
 
@@ -61,38 +44,50 @@ export function SiteHeader() {
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 pl-1 pr-2 h-9 rounded-none">
-                <Avatar className="size-7">
-                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+              <Button
+                variant="ghost"
+                className="h-10 cursor-pointer gap-2.5 rounded-none border border-transparent pl-1.5 pr-2.5 hover:border-border hover:bg-muted/70 aria-expanded:border-border aria-expanded:bg-muted"
+              >
+                <Avatar className="size-8">
+                  <AvatarFallback className="bg-primary text-[13px] font-semibold text-primary-foreground">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline text-sm text-muted-foreground">
-                  {user.email?.split("@")[0]}
+                <span className="hidden max-w-32 truncate text-[13px] font-medium text-foreground sm:inline">
+                  {userName}
                 </span>
+                <ChevronDownIcon className="hidden size-4 text-muted-foreground sm:block" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">Account</span>
-                  <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+            <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-2">
+              <DropdownMenuLabel className="px-3 py-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="size-10">
+                    <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <span className="block truncate text-[13px] font-semibold text-foreground">
+                      {userName}
+                    </span>
+                    <span className="block truncate text-sm text-muted-foreground">{user.email}</span>
+                  </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="flex items-center gap-2">
-                  <UserIcon className="size-4" />
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem asChild className="cursor-pointer px-3 py-2.5 text-[13px]">
+                <Link to="/profile" className="flex items-center gap-3">
+                  <UserIcon className="size-4 text-muted-foreground" />
                   Profile
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-destructive focus:text-destructive"
-              >
-                <LogOutIcon className="size-4" data-icon="inline-start" />
-                Sign out
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem asChild className="cursor-pointer px-3 py-2.5 text-[13px] text-destructive focus:text-destructive">
+                <Link to="/auth/signout" className="flex items-center gap-3">
+                  <LogOutIcon className="size-4" data-icon="inline-start" />
+                  Sign out
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

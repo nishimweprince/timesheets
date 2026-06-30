@@ -24,8 +24,11 @@ export function SiteHeader() {
   const user = useAppSelector((state) => state.auth.user)
 
   const userInitials =
-    user?.email?.slice(0, 2).toUpperCase() || "TH"
-  const userName = user?.email?.split("@")[0]
+    [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase()
+    || user?.email?.slice(0, 2).toUpperCase()
+    || "TH"
+  const userName = user?.fullName || user?.email?.split("@")[0]
+  const roleLabel = user?.roleNames?.[0] ?? user?.membershipStatus?.toLowerCase()
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 transition-[width,height] ease-linear">
@@ -72,6 +75,11 @@ export function SiteHeader() {
                       {userName}
                     </span>
                     <span className="block truncate text-sm text-muted-foreground">{user.email}</span>
+                    {roleLabel ? (
+                      <span className="block truncate text-xs capitalize text-muted-foreground">
+                        {roleLabel}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </DropdownMenuLabel>

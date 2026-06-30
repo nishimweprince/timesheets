@@ -3,6 +3,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import AuthShell from '@/components/auth/AuthShell';
 import Input from '@/components/reusable/inputs/Input';
@@ -52,6 +53,11 @@ const Login = () => {
         password: data.password,
       });
       dispatch(setAuth(response));
+      toast.success(`Welcome back${response.user.firstName ? `, ${response.user.firstName}` : ''}`, {
+        description: response.user.fullName
+          ? `Signed in as ${response.user.fullName}.`
+          : 'You are signed in to Tuza Health Timesheets.',
+      });
 
       if (data.rememberMe) {
         localStorage.setItem(REMEMBERED_EMAIL_KEY, data.email);

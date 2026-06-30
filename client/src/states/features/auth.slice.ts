@@ -5,6 +5,12 @@ export interface AuthUser {
   membershipId: string
   organizationId: string
   email: string
+  firstName?: string
+  lastName?: string
+  fullName?: string
+  membershipStatus?: 'PENDING' | 'ACTIVE' | 'INACTIVE'
+  primaryWorkSiteId?: string | null
+  roleNames?: string[]
   permissions: string[]
   sessionId?: string
 }

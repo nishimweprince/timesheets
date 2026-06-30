@@ -63,8 +63,15 @@ const Profile = () => {
     },
   })
 
-  const userInitials = user?.email?.slice(0, 2).toUpperCase() || "TH"
-  const displayName = user?.email?.split("@")[0] || "Team member"
+  const userInitials =
+    [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase()
+    || user?.email?.slice(0, 2).toUpperCase()
+    || "TH"
+  const displayName = user?.fullName || user?.email?.split("@")[0] || "Team member"
+  const roleLabel = user?.roleNames?.length ? user.roleNames.join(", ") : "No role assigned"
+  const membershipStatus = user?.membershipStatus
+    ? user.membershipStatus.toLowerCase().replaceAll("_", " ")
+    : "-"
 
   const togglePassword = (field: PasswordField) => {
     setVisiblePasswords((current) => ({
@@ -128,33 +135,59 @@ const Profile = () => {
                   Profile
                 </h1>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Review your signed-in account and update the password used for Tuza Health Timesheets.
+                  Review your account identity, organization access, and password settings.
                 </p>
               </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-              <Card>
+              <Card className="border-primary/20">
                 <CardHeader>
                   <CardDescription className="uppercase tracking-[0.12em] text-xs">
                     Signed in as
                   </CardDescription>
-                  <div className="flex items-center gap-3 pt-2">
-                    <Avatar className="size-11">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
+                  <div className="flex items-center gap-4 pt-2">
+                    <Avatar className="size-14">
+                      <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
                         {userInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <CardTitle className="truncate text-base font-semibold">
+                      <CardTitle className="truncate text-xl font-semibold">
                         {displayName}
                       </CardTitle>
                       <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="inline-flex h-6 items-center border border-primary/20 bg-primary/5 px-2 text-xs font-medium text-primary">
+                          {roleLabel}
+                        </span>
+                        <span className="inline-flex h-6 items-center border px-2 text-xs font-medium capitalize text-muted-foreground">
+                          {membershipStatus}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <dl className="grid gap-3 text-sm">
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div className="flex items-start gap-3 border-t pt-3">
+                      <UserIcon className="mt-0.5 size-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          First name
+                        </dt>
+                        <dd className="truncate font-medium text-foreground">{user?.firstName || "-"}</dd>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 border-t pt-3">
+                      <UserIcon className="mt-0.5 size-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Last name
+                        </dt>
+                        <dd className="truncate font-medium text-foreground">{user?.lastName || "-"}</dd>
+                      </div>
+                    </div>
                     <div className="flex items-start gap-3 border-t pt-3">
                       <MailIcon className="mt-0.5 size-4 text-muted-foreground" />
                       <div className="min-w-0">
@@ -165,6 +198,15 @@ const Profile = () => {
                       </div>
                     </div>
                     <div className="flex items-start gap-3 border-t pt-3">
+                      <ShieldCheckIcon className="mt-0.5 size-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Roles
+                        </dt>
+                        <dd className="truncate font-medium text-foreground">{roleLabel}</dd>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 border-t pt-3">
                       <Building2Icon className="mt-0.5 size-4 text-muted-foreground" />
                       <div className="min-w-0">
                         <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
@@ -172,6 +214,17 @@ const Profile = () => {
                         </dt>
                         <dd className="truncate font-mono text-xs text-foreground">
                           {user?.organizationId ?? "-"}
+                        </dd>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 border-t pt-3">
+                      <Building2Icon className="mt-0.5 size-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Primary work site
+                        </dt>
+                        <dd className="truncate font-mono text-xs text-foreground">
+                          {user?.primaryWorkSiteId ?? "Not assigned"}
                         </dd>
                       </div>
                     </div>

@@ -17,6 +17,12 @@ describe('OrganizationsService employee invitations', () => {
     membershipId: 'membership-admin',
     organizationId: 'organization-1',
     email: 'admin@example.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    fullName: 'Admin User',
+    membershipStatus: MembershipStatus.ACTIVE,
+    primaryWorkSiteId: null,
+    roleNames: ['Organization Admin'],
     permissions: []
   };
 

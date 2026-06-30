@@ -3,6 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { MailModule } from '../mail/mail.module';
+import { MembershipRole } from '../authorization/entities/membership-role.entity';
+import { Role } from '../authorization/entities/role.entity';
 import { User } from '../organizations/entities/user.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { RefreshTokenSession } from './entities/refresh-token-session.entity';
@@ -15,7 +17,7 @@ import { AuthController } from './auth.controller';
     JwtModule.register({}),
     AuthorizationModule,
     MailModule,
-    TypeOrmModule.forFeature([User, OrganizationMembership, RefreshTokenSession, PasswordResetToken])
+    TypeOrmModule.forFeature([User, OrganizationMembership, MembershipRole, Role, RefreshTokenSession, PasswordResetToken])
   ],
   controllers: [AuthController],
   providers: [AuthService],

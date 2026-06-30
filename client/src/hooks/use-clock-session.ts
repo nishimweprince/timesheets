@@ -72,7 +72,7 @@ export function useClockSession() {
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
-      dispatch(fetchHistory())
+      dispatch(fetchHistory({ page: 1, pageSize: 10 }))
     } catch (err) {
       showApiErrorToast(err)
     }
@@ -90,7 +90,7 @@ export function useClockSession() {
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
-      dispatch(fetchHistory())
+      dispatch(fetchHistory({ page: 1, pageSize: 10 }))
     } catch (err) {
       showApiErrorToast(err)
     }

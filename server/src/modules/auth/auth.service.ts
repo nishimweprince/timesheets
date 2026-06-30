@@ -2,11 +2,13 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from '../organizations/entities/user.entity';
 import { OrganizationMembership, MembershipStatus } from '../organizations/entities/organization-membership.entity';
+import { MembershipRole } from '../authorization/entities/membership-role.entity';
+import { Role } from '../authorization/entities/role.entity';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RefreshTokenSession } from './entities/refresh-token-session.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
@@ -29,6 +31,8 @@ export class AuthService {
     private readonly mailService: MailService,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(OrganizationMembership) private readonly memberships: Repository<OrganizationMembership>,
+    @InjectRepository(MembershipRole) private readonly membershipRoles: Repository<MembershipRole>,
+    @InjectRepository(Role) private readonly roles: Repository<Role>,
     @InjectRepository(RefreshTokenSession) private readonly refreshSessions: Repository<RefreshTokenSession>,
     @InjectRepository(PasswordResetToken) private readonly resetTokens: Repository<PasswordResetToken>
   ) {}
@@ -148,18 +152,13 @@ export class AuthService {
     const user = await this.users.findOneByOrFail({ id: userId });
     const membership = await this.memberships.findOneByOrFail({ id: membershipId });
     const permissions = await this.authorizationService.permissionsForMembership(membership.id);
-    return {
-      userId: user.id,
-      membershipId: membership.id,
-      organizationId: membership.organizationId,
-      email: user.email,
-      permissions,
-      sessionId
-    };
+    const roleNames = await this.roleNamesForMembership(membership.id);
+    return this.buildAuthUser(user, membership, permissions, roleNames, sessionId);
   }
 
   private async issueTokens(user: User, membership: OrganizationMembership): Promise<TokenResponse> {
     const permissions = await this.authorizationService.permissionsForMembership(membership.id);
+    const roleNames = await this.roleNamesForMembership(membership.id);
     const session = await this.refreshSessions.save(
       this.refreshSessions.create({
         userId: user.id,
@@ -182,15 +181,42 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: {
-        userId: user.id,
-        membershipId: membership.id,
-        organizationId: membership.organizationId,
-        email: user.email,
-        permissions,
-        sessionId: session.id
-      }
+      user: this.buildAuthUser(user, membership, permissions, roleNames, session.id)
     };
+  }
+
+  private buildAuthUser(
+    user: User,
+    membership: OrganizationMembership,
+    permissions: string[],
+    roleNames: string[],
+    sessionId?: string
+  ): RequestUser {
+    const fullName = `${user.firstName} ${user.lastName}`.trim();
+
+    return {
+      userId: user.id,
+      membershipId: membership.id,
+      organizationId: membership.organizationId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: fullName || user.email,
+      membershipStatus: membership.status,
+      primaryWorkSiteId: membership.primaryWorkSiteId,
+      roleNames,
+      permissions,
+      sessionId
+    };
+  }
+
+  private async roleNamesForMembership(membershipId: string): Promise<string[]> {
+    const membershipRoles = await this.membershipRoles.find({ where: { membershipId } });
+    const roleIds = membershipRoles.map((item) => item.roleId);
+    if (roleIds.length === 0) return [];
+
+    const roles = await this.roles.find({ where: { id: In(roleIds) } });
+    return roles.map((role) => role.name).sort((a, b) => a.localeCompare(b));
   }
 
   private futureDate(ttl: string): Date {

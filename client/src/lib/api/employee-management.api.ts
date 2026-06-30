@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { toQueryString, type PaginatedResult, type PaginationParams } from './pagination'
 
 export const MembershipStatus = {
   PENDING: 'PENDING',
@@ -94,9 +95,14 @@ export type AcceptInvitationPayload = {
   lastName: string
 }
 
+export interface EmployeesQueryParams extends PaginationParams {
+  search?: string
+  status?: MembershipStatus
+}
+
 export const employeeManagementApi = {
-  employees(): Promise<Employee[]> {
-    return apiRequest<Employee[]>('/employees')
+  employees(params?: EmployeesQueryParams): Promise<PaginatedResult<Employee>> {
+    return apiRequest<PaginatedResult<Employee>>(`/employees${toQueryString({ ...params })}`)
   },
 
   inviteEmployee(body: InviteEmployeePayload): Promise<Employee> {
@@ -111,8 +117,8 @@ export const employeeManagementApi = {
     return apiRequest<Employee>(`/employees/${membershipId}/resend-invite`, { method: 'POST' })
   },
 
-  teams(): Promise<Team[]> {
-    return apiRequest<Team[]>('/teams')
+  teams(params?: PaginationParams): Promise<PaginatedResult<Team>> {
+    return apiRequest<PaginatedResult<Team>>(`/teams${toQueryString({ ...params })}`)
   },
 
   createTeam(body: CreateTeamPayload): Promise<Team> {

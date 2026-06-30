@@ -4,11 +4,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { PaginatedResult, paginate } from '../../common/types/paginated-result';
 import { RequestUser } from '../../common/types/authenticated-request';
 import { MailService } from '../mail/mail.service';
 import { MembershipRole } from '../authorization/entities/membership-role.entity';
 import { Role } from '../authorization/entities/role.entity';
-import { AcceptEmployeeInvitationDto, CreateTeamDto, InviteEmployeeDto, UpdateEmployeeDto, UpdateTeamDto } from './dto/employee-management.dto';
+import {
+  AcceptEmployeeInvitationDto,
+  CreateTeamDto,
+  InviteEmployeeDto,
+  ListEmployeesQueryDto,
+  ListTeamsQueryDto,
+  UpdateEmployeeDto,
+  UpdateTeamDto
+} from './dto/employee-management.dto';
 import { EmployeeInvitation } from './entities/employee-invitation.entity';
 import { EmployeeProfile } from './entities/employee-profile.entity';
 import { OrganizationMembership, MembershipStatus } from './entities/organization-membership.entity';
@@ -67,12 +76,32 @@ export class OrganizationsService {
     return this.organizations.findOneByOrFail({ id: user.organizationId });
   }
 
-  async listEmployees(user: RequestUser): Promise<EmployeeSummary[]> {
-    const memberships = await this.memberships.find({
-      where: { organizationId: user.organizationId },
-      order: { createdAt: 'DESC' }
-    });
-    return this.buildEmployeeSummaries(user.organizationId, memberships);
+  async listEmployees(user: RequestUser, query: ListEmployeesQueryDto): Promise<PaginatedResult<EmployeeSummary>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+
+    const qb = this.memberships
+      .createQueryBuilder('membership')
+      .leftJoin(User, 'employeeUser', 'employeeUser.id = membership.userId')
+      .leftJoin(EmployeeProfile, 'profile', 'profile.membershipId = membership.id AND profile.organizationId = membership.organizationId')
+      .where('membership.organizationId = :organizationId', { organizationId: user.organizationId });
+
+    if (query.status) qb.andWhere('membership.status = :status', { status: query.status });
+    if (query.search?.trim()) {
+      qb.andWhere(
+        '(employeeUser.firstName ILIKE :search OR employeeUser.lastName ILIKE :search OR employeeUser.email ILIKE :search OR profile.employeeNumber ILIKE :search OR profile.jobTitle ILIKE :search)',
+        { search: `%${query.search.trim()}%` }
+      );
+    }
+
+    const [memberships, total] = await qb
+      .orderBy('membership.createdAt', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+
+    const data = await this.buildEmployeeSummaries(user.organizationId, memberships);
+    return paginate(data, total, page, pageSize);
   }
 
   async inviteEmployee(user: RequestUser, dto: InviteEmployeeDto): Promise<EmployeeSummary> {
@@ -270,9 +299,17 @@ export class OrganizationsService {
     return this.findEmployeeSummary(user.organizationId, membershipId);
   }
 
-  async listTeams(user: RequestUser): Promise<TeamSummary[]> {
-    const teams = await this.teams.find({ where: { organizationId: user.organizationId }, order: { name: 'ASC' } });
-    return this.buildTeamSummaries(user.organizationId, teams);
+  async listTeams(user: RequestUser, query: ListTeamsQueryDto): Promise<PaginatedResult<TeamSummary>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [teams, total] = await this.teams.findAndCount({
+      where: { organizationId: user.organizationId },
+      order: { name: 'ASC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    });
+    const data = await this.buildTeamSummaries(user.organizationId, teams);
+    return paginate(data, total, page, pageSize);
   }
 
   async createTeam(user: RequestUser, dto: CreateTeamDto): Promise<TeamSummary> {

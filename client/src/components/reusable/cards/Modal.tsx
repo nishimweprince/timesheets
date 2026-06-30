@@ -37,6 +37,7 @@ const JSX_MODAL: FC<ModalProps> = ({
       <DialogContent
         className={`z-[9000] min-w-[45vw] ${className} overflow-y-auto max-h-[90vh]`}
         onClick={(e) => {
+          e.preventDefault();
           e.stopPropagation();
         }}
       >

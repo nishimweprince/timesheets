@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsLatitude, IsLongitude, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { IsDateString, IsIn, IsLatitude, IsLongitude, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+
+export const HISTORY_STATUS_GROUPS = ['Approved', 'Pending', 'Draft'] as const;
+export type HistoryStatusGroup = (typeof HISTORY_STATUS_GROUPS)[number];
+
+export class HistoryQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsIn(HISTORY_STATUS_GROUPS)
+  status?: HistoryStatusGroup;
+}
 
 export class LocationDto {
   @IsLatitude()

@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { CalendarIcon, FileTextIcon, PlayIcon, SquareIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { cn } from "@/lib/utils"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -28,15 +29,9 @@ import {
 } from "@/components/ui/chart"
 import { DataTable } from "@/components/reusable/tables"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-import {
-  clockIn,
-  clockOut,
-  fetchCurrentSession,
-  fetchHistory,
-} from "@/states/features/attendance.slice"
+import { fetchHistory, fetchHistorySummary } from "@/states/features/attendance.slice"
 import { WorkSessionStatus } from "@/lib/api/attendance.api"
-import { showApiErrorToast } from "@/lib/api/errors"
-import { setLocation } from "@/states/features/location.slice"
+import { useClockSession } from "@/hooks/use-clock-session"
 import {
   computeWeeklyHours,
   formatTime,
@@ -96,12 +91,25 @@ const recentEntryColumns: ColumnDef<RecentEntry>[] = [
 const Dashboard = () => {
   const dispatch = useAppDispatch()
 
-  const currentSession = useAppSelector((s) => s.attendance.currentSession)
   const history = useAppSelector((s) => s.attendance.history)
+  const historySummary = useAppSelector((s) => s.attendance.historySummary)
+  const isHistoryLoading = useAppSelector((s) => s.attendance.status.history === "loading")
+  const isRecentLoading = isHistoryLoading && history.data.length === 0
+  const isRecentFetching = isHistoryLoading && history.data.length > 0
   const orgSessions = useAppSelector((s) => s.attendance.orgSessions)
-  const clockInLoading = useAppSelector((s) => s.attendance.status.clockIn === "loading")
-  const clockOutLoading = useAppSelector((s) => s.attendance.status.clockOut === "loading")
-  const storedCoords = useAppSelector((s) => s.location.coords)
+  const permissions = useAppSelector((s) => s.auth.user?.permissions ?? [])
+  const canClockInOut = permissions.includes("attendance.clock_in.self")
+  const canManageShifts = permissions.includes("shift.create")
+
+  const {
+    currentSession,
+    isOnShift,
+    clockInLoading,
+    clockOutLoading,
+    actionLoading,
+    handleClockIn,
+    handleClockOut,
+  } = useClockSession()
 
   const [recentPagination, setRecentPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -109,80 +117,17 @@ const Dashboard = () => {
   })
 
   React.useEffect(() => {
-    dispatch(fetchCurrentSession())
-    dispatch(fetchHistory())
+    dispatch(
+      fetchHistory({ page: recentPagination.pageIndex + 1, pageSize: recentPagination.pageSize })
+    )
+  }, [dispatch, recentPagination.pageIndex, recentPagination.pageSize])
+
+  React.useEffect(() => {
+    dispatch(fetchHistorySummary())
   }, [dispatch])
 
-  const isOnShift = currentSession?.status === WorkSessionStatus.OPEN
-
-  const getLocation = (): Promise<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string }> =>
-    new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracyMeters: pos.coords.accuracy,
-            capturedAt: new Date().toISOString(),
-          }
-          dispatch(setLocation({ ...coords, accuracy: pos.coords.accuracy }))
-          resolve(coords)
-        },
-        () => {
-          // Fall back to the last known position from the guard
-          if (storedCoords) {
-            resolve({
-              latitude: storedCoords.latitude,
-              longitude: storedCoords.longitude,
-              accuracyMeters: storedCoords.accuracy,
-              capturedAt: storedCoords.capturedAt,
-            })
-          } else {
-            reject(new Error("Location unavailable"))
-          }
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-      )
-    })
-
-  const handleClockIn = async () => {
-    try {
-      const location = await getLocation()
-      await dispatch(
-        clockIn({
-          clientReportedAt: new Date().toISOString(),
-          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-          location: { ...location, source: "browser", permissionState: "granted" },
-        })
-      ).unwrap()
-      dispatch(fetchCurrentSession())
-      dispatch(fetchHistory())
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
-  const handleClockOut = async () => {
-    try {
-      const location = await getLocation()
-      await dispatch(
-        clockOut({
-          clientReportedAt: new Date().toISOString(),
-          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-          location: { ...location, source: "browser", permissionState: "granted" },
-        })
-      ).unwrap()
-      dispatch(fetchCurrentSession())
-      dispatch(fetchHistory())
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
   // Derived metrics
-  const weeklyData = React.useMemo(() => computeWeeklyHours(history), [history])
+  const weeklyData = React.useMemo(() => computeWeeklyHours(historySummary), [historySummary])
 
   const weekHours = React.useMemo(
     () => Math.round(weeklyData.reduce((sum, d) => sum + d.hours, 0) * 10) / 10,
@@ -191,11 +136,11 @@ const Dashboard = () => {
 
   const todayHours = React.useMemo(() => {
     const today = new Date().toDateString()
-    const minutes = history
+    const minutes = historySummary
       .filter((s) => new Date(s.actualClockInAt).toDateString() === today)
       .reduce((sum, s) => sum + (s.netMinutes ?? s.grossMinutes ?? 0), 0)
     return Math.round((minutes / 60) * 10) / 10
-  }, [history])
+  }, [historySummary])
 
   const daysWorked = React.useMemo(() => {
     const week = new Set(
@@ -206,15 +151,7 @@ const Dashboard = () => {
 
   const teamOnDuty = orgSessions.filter((s) => s.status === WorkSessionStatus.OPEN).length
 
-  const allEntries = React.useMemo(
-    () => history.map(sessionToEntry),
-    [history]
-  )
-
-  const paginatedEntries = React.useMemo(() => {
-    const start = recentPagination.pageIndex * recentPagination.pageSize
-    return allEntries.slice(start, start + recentPagination.pageSize)
-  }, [allEntries, recentPagination])
+  const recentEntries = React.useMemo(() => history.data.map(sessionToEntry), [history.data])
 
   const metrics = [
     { label: "Hours this week", value: String(weekHours), sub: "of 40 target" },
@@ -230,8 +167,6 @@ const Dashboard = () => {
       sub: "across wards",
     },
   ]
-
-  const actionLoading = clockInLoading || clockOutLoading
 
   return (
     <SidebarProvider
@@ -249,54 +184,56 @@ const Dashboard = () => {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
             {/* Clock In / Out */}
-            <Card className="border-primary/30">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardDescription className="uppercase tracking-[0.12em] text-xs">
-                      Current Shift
-                    </CardDescription>
-                    <CardTitle className="text-lg font-semibold tracking-tight">
-                      {isOnShift ? "On duty" : "Clocked out"}
-                    </CardTitle>
+            {canClockInOut && (
+              <Card className="border-primary/30">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                        Current Shift
+                      </CardDescription>
+                      <CardTitle className="text-lg font-semibold tracking-tight">
+                        {isOnShift ? "On duty" : "Clocked out"}
+                      </CardTitle>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground tabular-nums">
+                      {isOnShift && currentSession
+                        ? `Started ${formatTime(currentSession.actualClockInAt)}`
+                        : "Last shift ended today"}
+                    </div>
                   </div>
-                  <div className="text-right text-xs text-muted-foreground tabular-nums">
-                    {isOnShift && currentSession
-                      ? `Started ${formatTime(currentSession.actualClockInAt)}`
-                      : "Last shift ended today"}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    size="lg"
-                    className="h-11 rounded-none px-8 text-sm font-medium"
-                    onClick={isOnShift ? handleClockOut : handleClockIn}
-                    variant={isOnShift ? "destructive" : "default"}
-                    disabled={actionLoading}
-                  >
-                    {isOnShift ? (
-                      <>
-                        <SquareIcon data-icon="inline-start" />
-                        {clockOutLoading ? "Clocking out…" : "Clock Out"}
-                      </>
-                    ) : (
-                      <>
-                        <PlayIcon data-icon="inline-start" />
-                        {clockInLoading ? "Clocking in…" : "Clock In"}
-                      </>
-                    )}
-                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="lg"
+                      className="h-11 rounded-none px-8 text-sm font-medium"
+                      onClick={isOnShift ? handleClockOut : handleClockIn}
+                      variant={isOnShift ? "destructive" : "default"}
+                      disabled={actionLoading}
+                    >
+                      {isOnShift ? (
+                        <>
+                          <SquareIcon data-icon="inline-start" />
+                          {clockOutLoading ? "Clocking out…" : "Clock Out"}
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon data-icon="inline-start" />
+                          {clockInLoading ? "Clocking in…" : "Clock In"}
+                        </>
+                      )}
+                    </Button>
 
-                  <div className="text-sm text-muted-foreground">
-                    {isOnShift
-                      ? "You are currently recording time. Tap clock out when your shift ends."
-                      : "Ready to start your shift? Use the button to begin tracking."}
+                    <div className="text-sm text-muted-foreground">
+                      {isOnShift
+                        ? "You are currently recording time. Tap clock out when your shift ends."
+                        : "Ready to start your shift? Use the button to begin tracking."}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Metrics grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -318,31 +255,33 @@ const Dashboard = () => {
             </div>
 
             {/* Quick navigation */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="group">
-                <CardHeader className="pb-2">
-                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
-                    Operations
-                  </CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-base font-medium">
-                    <CalendarIcon className="size-4 text-muted-foreground" />
-                    Schedule
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Create shifts, manage templates and assign employees.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 shrink-0 rounded-none text-xs"
-                    asChild
-                  >
-                    <Link to="/scheduling">Open</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+            <div className={cn("grid gap-4", canManageShifts && "sm:grid-cols-2")}>
+              {canManageShifts && (
+                <Card className="group">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                      Operations
+                    </CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <CalendarIcon className="size-4 text-muted-foreground" />
+                      Schedule
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Create shifts, manage templates and assign employees.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 rounded-none text-xs"
+                      asChild
+                    >
+                      <Link to="/scheduling">Open</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="group">
                 <CardHeader className="pb-2">
@@ -418,12 +357,15 @@ const Dashboard = () => {
               eyebrow="Recent"
               title="Recent entries"
               columns={recentEntryColumns}
-              data={paginatedEntries}
+              data={recentEntries}
               getRowId={(entry) => entry.id}
               pagination={recentPagination}
+              paginationInfo={history}
               onPaginationChange={setRecentPagination}
-              rowCount={allEntries.length}
+              rowCount={history.total}
               pageSizeOptions={[4, 8, 12]}
+              isLoading={isRecentLoading}
+              isFetching={isRecentFetching}
               emptyTitle="No recent entries"
               emptyDescription="Clock in to start a new timesheet entry."
               actions={

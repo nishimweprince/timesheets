@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { RequestUser } from '../../common/types/authenticated-request';
-import { CreateShiftAssignmentDto, CreateShiftInstanceDto, CreateShiftTemplateDto } from './dto/scheduling.dto';
+import { CreateShiftAssignmentDto, CreateShiftInstanceDto, CreateShiftTemplateDto, ListSchedulingQueryDto } from './dto/scheduling.dto';
 import { SchedulingService } from './scheduling.service';
 
 @Controller()
@@ -12,8 +12,8 @@ export class SchedulingController {
 
   @Get('shift-templates')
   @Permissions('shift.read')
-  findTemplates(@CurrentUser() user: RequestUser) {
-    return this.schedulingService.findTemplates(user);
+  findTemplates(@CurrentUser() user: RequestUser, @Query() query: ListSchedulingQueryDto) {
+    return this.schedulingService.findTemplates(user, query);
   }
 
   @Post('shift-templates')
@@ -25,8 +25,8 @@ export class SchedulingController {
 
   @Get('shift-instances')
   @Permissions('shift.read')
-  findInstances(@CurrentUser() user: RequestUser) {
-    return this.schedulingService.findInstances(user);
+  findInstances(@CurrentUser() user: RequestUser, @Query() query: ListSchedulingQueryDto) {
+    return this.schedulingService.findInstances(user, query);
   }
 
   @Post('shift-instances')
@@ -38,8 +38,8 @@ export class SchedulingController {
 
   @Get('shift-assignments')
   @Permissions('shift.read')
-  findAssignments(@CurrentUser() user: RequestUser) {
-    return this.schedulingService.findAssignments(user);
+  findAssignments(@CurrentUser() user: RequestUser, @Query() query: ListSchedulingQueryDto) {
+    return this.schedulingService.findAssignments(user, query);
   }
 
   @Post('shift-assignments')

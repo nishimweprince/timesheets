@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AuthGuard from '@/components/auth/AuthGuard'
 import GuestGuard from '@/components/auth/GuestGuard'
 import LocationGuard from '@/components/auth/LocationGuard'
+import PermissionGuard from '@/components/auth/PermissionGuard'
 import ForgotPassword from '../pages/auth/ForgotPassword'
 import Login from '../pages/auth/Login'
 import Onboarding from '../pages/auth/Onboarding'
@@ -11,6 +12,7 @@ import Dashboard from '../pages/Dashboard'
 import Timesheets from '../pages/timesheets/Timesheets'
 import Scheduling from '../pages/scheduling/Scheduling'
 import Team from '../pages/team/Team'
+import Profile from '../pages/profile/Profile'
 
 const Router = () => {
   return (
@@ -26,8 +28,13 @@ const Router = () => {
         <Route element={<LocationGuard />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/timesheets" element={<Timesheets />} />
-          <Route path="/scheduling" element={<Scheduling />} />
-          <Route path="/team" element={<Team />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route element={<PermissionGuard permission="shift.create" />}>
+            <Route path="/scheduling" element={<Scheduling />} />
+          </Route>
+          <Route element={<PermissionGuard permission="employee.read" />}>
+            <Route path="/team" element={<Team />} />
+          </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Route>

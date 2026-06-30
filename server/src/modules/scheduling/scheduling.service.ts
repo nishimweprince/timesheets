@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
+import { PaginatedResult, paginate } from '../../common/types/paginated-result';
 import { RequestUser } from '../../common/types/authenticated-request';
 import { ShiftTemplate } from './entities/shift-template.entity';
 import { ShiftInstance, ShiftInstanceStatus } from './entities/shift-instance.entity';
 import { ShiftAssignment, ShiftAssignmentStatus } from './entities/shift-assignment.entity';
-import { CreateShiftAssignmentDto, CreateShiftInstanceDto, CreateShiftTemplateDto } from './dto/scheduling.dto';
+import { CreateShiftAssignmentDto, CreateShiftInstanceDto, CreateShiftTemplateDto, ListSchedulingQueryDto } from './dto/scheduling.dto';
 
 @Injectable()
 export class SchedulingService {
@@ -28,8 +29,16 @@ export class SchedulingService {
     );
   }
 
-  findTemplates(user: RequestUser): Promise<ShiftTemplate[]> {
-    return this.templates.find({ where: { organizationId: user.organizationId, active: true }, order: { name: 'ASC' } });
+  async findTemplates(user: RequestUser, query: ListSchedulingQueryDto): Promise<PaginatedResult<ShiftTemplate>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [data, total] = await this.templates.findAndCount({
+      where: { organizationId: user.organizationId, active: true },
+      order: { name: 'ASC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    });
+    return paginate(data, total, page, pageSize);
   }
 
   createInstance(user: RequestUser, dto: CreateShiftInstanceDto): Promise<ShiftInstance> {
@@ -44,8 +53,16 @@ export class SchedulingService {
     );
   }
 
-  findInstances(user: RequestUser): Promise<ShiftInstance[]> {
-    return this.instances.find({ where: { organizationId: user.organizationId }, order: { startAt: 'DESC' }, take: 100 });
+  async findInstances(user: RequestUser, query: ListSchedulingQueryDto): Promise<PaginatedResult<ShiftInstance>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [data, total] = await this.instances.findAndCount({
+      where: { organizationId: user.organizationId },
+      order: { startAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    });
+    return paginate(data, total, page, pageSize);
   }
 
   async assign(user: RequestUser, dto: CreateShiftAssignmentDto): Promise<ShiftAssignment> {
@@ -60,8 +77,16 @@ export class SchedulingService {
     );
   }
 
-  findAssignments(user: RequestUser): Promise<ShiftAssignment[]> {
-    return this.assignments.find({ where: { organizationId: user.organizationId }, order: { createdAt: 'DESC' }, take: 100 });
+  async findAssignments(user: RequestUser, query: ListSchedulingQueryDto): Promise<PaginatedResult<ShiftAssignment>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [data, total] = await this.assignments.findAndCount({
+      where: { organizationId: user.organizationId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    });
+    return paginate(data, total, page, pageSize);
   }
 
   async resolveShift(organizationId: string, employeeMembershipId: string, at: Date, requestedAssignmentId?: string | null): Promise<{

@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { toQueryString, type PaginatedResult, type PaginationParams } from './pagination'
 
 export const WorkSessionStatus = {
   OPEN: 'OPEN',
@@ -70,13 +71,21 @@ function clockHeaders(): Record<string, string> {
   return { 'Idempotency-Key': crypto.randomUUID() }
 }
 
+export type HistoryStatusGroup = 'Approved' | 'Pending' | 'Draft'
+
+export interface HistoryQueryParams extends PaginationParams {
+  status?: HistoryStatusGroup
+}
+
 export const attendanceApi = {
   currentSession(): Promise<WorkSession | null> {
     return apiRequest<WorkSession | null>('/attendance/me/current-session')
   },
 
-  history(): Promise<WorkSession[]> {
-    return apiRequest<WorkSession[]>('/attendance/me/history')
+  history(params?: HistoryQueryParams): Promise<PaginatedResult<WorkSession>> {
+    return apiRequest<PaginatedResult<WorkSession>>(
+      `/attendance/me/history${toQueryString({ ...params })}`,
+    )
   },
 
   clockIn(body: ClockPayload): Promise<Record<string, unknown>> {

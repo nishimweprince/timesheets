@@ -1,17 +1,24 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { PaginatedResult, paginate } from '../../common/types/paginated-result';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
 import { AuditLayer } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { MediaService } from '../media/media.service';
 import { PoliciesService } from '../policies/policies.service';
 import { SchedulingService } from '../scheduling/scheduling.service';
-import { ClockDto } from './dto/attendance.dto';
+import { ClockDto, HistoryQueryDto, HistoryStatusGroup } from './dto/attendance.dto';
 import { AttendanceEvent, AttendanceEventType } from './entities/attendance-event.entity';
 import { AttendanceException } from './entities/attendance-exception.entity';
 import { ClockAttempt, ClockAttemptResult } from './entities/clock-attempt.entity';
 import { ShiftResolutionType, WorkSession, WorkSessionStatus } from './entities/work-session.entity';
+
+const HISTORY_STATUS_GROUP_MAP: Record<HistoryStatusGroup, WorkSessionStatus[]> = {
+  Approved: [WorkSessionStatus.APPROVED, WorkSessionStatus.LOCKED],
+  Draft: [WorkSessionStatus.REJECTED, WorkSessionStatus.CANCELLED],
+  Pending: [WorkSessionStatus.OPEN, WorkSessionStatus.CLOCKED_OUT, WorkSessionStatus.PENDING_REVIEW]
+};
 
 @Injectable()
 export class AttendanceService {
@@ -31,12 +38,20 @@ export class AttendanceService {
     });
   }
 
-  history(user: RequestUser): Promise<WorkSession[]> {
-    return this.sessions.find({
-      where: { organizationId: user.organizationId, employeeMembershipId: user.membershipId },
+  async history(user: RequestUser, query: HistoryQueryDto): Promise<PaginatedResult<WorkSession>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const [data, total] = await this.sessions.findAndCount({
+      where: {
+        organizationId: user.organizationId,
+        employeeMembershipId: user.membershipId,
+        ...(query.status ? { status: In(HISTORY_STATUS_GROUP_MAP[query.status]) } : {})
+      },
       order: { actualClockInAt: 'DESC' },
-      take: 50
+      skip: (page - 1) * pageSize,
+      take: pageSize
     });
+    return paginate(data, total, page, pageSize);
   }
 
   sessionsForOrg(user: RequestUser): Promise<WorkSession[]> {

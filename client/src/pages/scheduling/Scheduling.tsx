@@ -27,8 +27,11 @@ import {
   createInstance,
   createTemplate,
   fetchAssignments,
+  fetchAssignmentsPage,
   fetchInstances,
+  fetchInstancesPage,
   fetchTemplates,
+  fetchTemplatesPage,
 } from "@/states/features/scheduling.slice"
 import {
   ShiftAssignmentStatus,
@@ -491,9 +494,12 @@ const Scheduling = () => {
   const templates = useAppSelector((s) => s.scheduling.templates)
   const instances = useAppSelector((s) => s.scheduling.instances)
   const assignments = useAppSelector((s) => s.scheduling.assignments)
-  const statusTemplates = useAppSelector((s) => s.scheduling.status.templates)
-  const statusInstances = useAppSelector((s) => s.scheduling.status.instances)
-  const statusAssignments = useAppSelector((s) => s.scheduling.status.assignments)
+  const templatesPage = useAppSelector((s) => s.scheduling.templatesPage)
+  const instancesPage = useAppSelector((s) => s.scheduling.instancesPage)
+  const assignmentsPage = useAppSelector((s) => s.scheduling.assignmentsPage)
+  const statusTemplatesPage = useAppSelector((s) => s.scheduling.status.templatesPage)
+  const statusInstancesPage = useAppSelector((s) => s.scheduling.status.instancesPage)
+  const statusAssignmentsPage = useAppSelector((s) => s.scheduling.status.assignmentsPage)
 
   const [activeTab, setActiveTab] = React.useState<Tab>("templates")
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -501,11 +507,21 @@ const Scheduling = () => {
     pageSize: 8,
   })
 
+  // Lookup fetch: full-ish lists used by dialogs (template/shift pickers) and
+  // summary card counts, independent of the active tab's table pagination.
   React.useEffect(() => {
     dispatch(fetchTemplates())
     dispatch(fetchInstances())
     dispatch(fetchAssignments())
   }, [dispatch])
+
+  // Table fetch: paginated data for whichever tab is currently visible.
+  React.useEffect(() => {
+    const params = { page: pagination.pageIndex + 1, pageSize: pagination.pageSize }
+    if (activeTab === "templates") dispatch(fetchTemplatesPage(params))
+    else if (activeTab === "shifts") dispatch(fetchInstancesPage(params))
+    else dispatch(fetchAssignmentsPage(params))
+  }, [dispatch, activeTab, pagination.pageIndex, pagination.pageSize])
 
   const summaryCards = [
     { label: "Templates", value: String(templates.length), sub: "shift templates" },
@@ -515,25 +531,17 @@ const Scheduling = () => {
 
   const isLoadingCurrent =
     activeTab === "templates"
-      ? statusTemplates === "loading"
+      ? statusTemplatesPage === "loading" && templatesPage.data.length === 0
       : activeTab === "shifts"
-      ? statusInstances === "loading"
-      : statusAssignments === "loading"
+      ? statusInstancesPage === "loading" && instancesPage.data.length === 0
+      : statusAssignmentsPage === "loading" && assignmentsPage.data.length === 0
 
-  const paginatedTemplates = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize
-    return templates.slice(start, start + pagination.pageSize)
-  }, [templates, pagination])
-
-  const paginatedInstances = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize
-    return instances.slice(start, start + pagination.pageSize)
-  }, [instances, pagination])
-
-  const paginatedAssignments = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize
-    return assignments.slice(start, start + pagination.pageSize)
-  }, [assignments, pagination])
+  const isFetchingCurrent =
+    activeTab === "templates"
+      ? statusTemplatesPage === "loading" && templatesPage.data.length > 0
+      : activeTab === "shifts"
+      ? statusInstancesPage === "loading" && instancesPage.data.length > 0
+      : statusAssignmentsPage === "loading" && assignmentsPage.data.length > 0
 
   return (
     <SidebarProvider
@@ -597,16 +605,25 @@ const Scheduling = () => {
                 eyebrow="Scheduling"
                 title="Shift templates"
                 columns={templateColumns}
-                data={paginatedTemplates}
+                data={templatesPage.data}
                 getRowId={(t) => t.id}
                 pagination={pagination}
+                paginationInfo={templatesPage}
                 onPaginationChange={setPagination}
-                rowCount={templates.length}
+                rowCount={templatesPage.total}
                 pageSizeOptions={[8, 16, 32]}
                 isLoading={isLoadingCurrent}
+                isFetching={isFetchingCurrent}
                 emptyTitle="No templates yet"
                 emptyDescription="Create a template to define recurring shift patterns."
-                actions={<NewTemplateDialog onCreated={() => dispatch(fetchTemplates())} />}
+                actions={
+                  <NewTemplateDialog
+                    onCreated={() => {
+                      dispatch(fetchTemplates())
+                      dispatch(fetchTemplatesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+                    }}
+                  />
+                }
               />
             )}
 
@@ -616,16 +633,25 @@ const Scheduling = () => {
                 eyebrow="Scheduling"
                 title="Shift instances"
                 columns={instanceColumns}
-                data={paginatedInstances}
+                data={instancesPage.data}
                 getRowId={(i) => i.id}
                 pagination={pagination}
+                paginationInfo={instancesPage}
                 onPaginationChange={setPagination}
-                rowCount={instances.length}
+                rowCount={instancesPage.total}
                 pageSizeOptions={[8, 16, 32]}
                 isLoading={isLoadingCurrent}
+                isFetching={isFetchingCurrent}
                 emptyTitle="No shifts scheduled"
                 emptyDescription="Create a shift to schedule work for your team."
-                actions={<NewShiftDialog onCreated={() => dispatch(fetchInstances())} />}
+                actions={
+                  <NewShiftDialog
+                    onCreated={() => {
+                      dispatch(fetchInstances())
+                      dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+                    }}
+                  />
+                }
               />
             )}
 
@@ -635,16 +661,25 @@ const Scheduling = () => {
                 eyebrow="Scheduling"
                 title="Shift assignments"
                 columns={assignmentColumns}
-                data={paginatedAssignments}
+                data={assignmentsPage.data}
                 getRowId={(a) => a.id}
                 pagination={pagination}
+                paginationInfo={assignmentsPage}
                 onPaginationChange={setPagination}
-                rowCount={assignments.length}
+                rowCount={assignmentsPage.total}
                 pageSizeOptions={[8, 16, 32]}
                 isLoading={isLoadingCurrent}
+                isFetching={isFetchingCurrent}
                 emptyTitle="No assignments yet"
                 emptyDescription="Assign employees to scheduled shifts to get started."
-                actions={<AssignEmployeeDialog onCreated={() => dispatch(fetchAssignments())} />}
+                actions={
+                  <AssignEmployeeDialog
+                    onCreated={() => {
+                      dispatch(fetchAssignments())
+                      dispatch(fetchAssignmentsPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+                    }}
+                  />
+                }
               />
             )}
           </div>

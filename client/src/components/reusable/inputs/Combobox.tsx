@@ -116,7 +116,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
             <PopoverPrimitive.Content
               sideOffset={4}
               align="start"
-              className="z-50 w-[var(--radix-popover-trigger-width)] rounded-none border border-field-border bg-popover p-1 text-popover-foreground shadow-sm"
+              className="z-[500000] w-[var(--radix-popover-trigger-width)] rounded-none border border-field-border bg-popover p-1 text-popover-foreground shadow-sm"
             >
               <input
                 value={searchTerm}

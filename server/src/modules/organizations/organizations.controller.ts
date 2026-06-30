@@ -4,7 +4,15 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { RequestUser } from '../../common/types/authenticated-request';
-import { AcceptEmployeeInvitationDto, CreateTeamDto, InviteEmployeeDto, UpdateEmployeeDto, UpdateTeamDto } from './dto/employee-management.dto';
+import {
+  AcceptEmployeeInvitationDto,
+  CreateTeamDto,
+  InviteEmployeeDto,
+  ListEmployeesQueryDto,
+  ListTeamsQueryDto,
+  UpdateEmployeeDto,
+  UpdateTeamDto
+} from './dto/employee-management.dto';
 import { OrganizationsService } from './organizations.service';
 
 @Controller('organizations')
@@ -24,8 +32,8 @@ export class EmployeesController {
 
   @Get()
   @Permissions('employee.read')
-  findEmployees(@CurrentUser() user: RequestUser) {
-    return this.organizationsService.listEmployees(user);
+  findEmployees(@CurrentUser() user: RequestUser, @Query() query: ListEmployeesQueryDto) {
+    return this.organizationsService.listEmployees(user, query);
   }
 
   @Post('invite')
@@ -60,8 +68,8 @@ export class TeamsController {
 
   @Get()
   @Permissions('employee.read')
-  findTeams(@CurrentUser() user: RequestUser) {
-    return this.organizationsService.listTeams(user);
+  findTeams(@CurrentUser() user: RequestUser, @Query() query: ListTeamsQueryDto) {
+    return this.organizationsService.listTeams(user, query);
   }
 
   @Post()

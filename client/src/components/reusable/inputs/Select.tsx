@@ -102,7 +102,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                 position="popper"
                 sideOffset={4}
                 className={cn(
-                  'z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-none border border-field-border bg-popover text-popover-foreground shadow-sm',
+                  'z-[10000] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-none border border-field-border bg-popover text-popover-foreground shadow-sm',
                   contentClassName,
                 )}
               >

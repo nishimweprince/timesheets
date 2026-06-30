@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { toQueryString, type PaginatedResult, type PaginationParams } from './pagination'
 
 export interface ShiftTemplate {
   id: string
@@ -68,24 +69,24 @@ export interface CreateShiftAssignmentPayload {
 }
 
 export const schedulingApi = {
-  templates(): Promise<ShiftTemplate[]> {
-    return apiRequest<ShiftTemplate[]>('/shift-templates')
+  templates(params?: PaginationParams): Promise<PaginatedResult<ShiftTemplate>> {
+    return apiRequest<PaginatedResult<ShiftTemplate>>(`/shift-templates${toQueryString({ ...params })}`)
   },
 
   createTemplate(body: CreateShiftTemplatePayload): Promise<ShiftTemplate> {
     return apiRequest<ShiftTemplate>('/shift-templates', { method: 'POST', body })
   },
 
-  instances(): Promise<ShiftInstance[]> {
-    return apiRequest<ShiftInstance[]>('/shift-instances')
+  instances(params?: PaginationParams): Promise<PaginatedResult<ShiftInstance>> {
+    return apiRequest<PaginatedResult<ShiftInstance>>(`/shift-instances${toQueryString({ ...params })}`)
   },
 
   createInstance(body: CreateShiftInstancePayload): Promise<ShiftInstance> {
     return apiRequest<ShiftInstance>('/shift-instances', { method: 'POST', body })
   },
 
-  assignments(): Promise<ShiftAssignment[]> {
-    return apiRequest<ShiftAssignment[]>('/shift-assignments')
+  assignments(params?: PaginationParams): Promise<PaginatedResult<ShiftAssignment>> {
+    return apiRequest<PaginatedResult<ShiftAssignment>>(`/shift-assignments${toQueryString({ ...params })}`)
   },
 
   createAssignment(body: CreateShiftAssignmentPayload): Promise<ShiftAssignment> {

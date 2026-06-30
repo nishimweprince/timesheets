@@ -1,5 +1,18 @@
 import { ArrayUnique, IsArray, IsEmail, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { MembershipStatus } from '../entities/organization-membership.entity';
+
+export class ListEmployeesQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(MembershipStatus)
+  status?: MembershipStatus;
+}
+
+export class ListTeamsQueryDto extends PaginationQueryDto {}
 
 export class InviteEmployeeDto {
   @IsEmail()

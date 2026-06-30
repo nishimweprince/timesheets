@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { derivePageCount } from "./resolveDataTablePagination"
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 declare module "@tanstack/react-table" {
@@ -46,6 +47,13 @@ declare module "@tanstack/react-table" {
 type DataTablePagination = {
   pageIndex: number
   pageSize: number
+}
+
+type DataTablePaginationInfo = {
+  page: number
+  pageSize: number
+  total: number
+  pageCount?: number
 }
 
 type DataTablePaginationLabels = {
@@ -77,6 +85,7 @@ type DataTableProps<TData, TValue> = {
   emptyDescription?: React.ReactNode
   emptyAction?: React.ReactNode
   pagination?: DataTablePagination
+  paginationInfo?: DataTablePaginationInfo
   onPaginationChange?: OnChangeFn<PaginationState>
   rowCount?: number
   pageCount?: number
@@ -124,12 +133,13 @@ function DataTable<TData, TValue>({
   emptyDescription,
   emptyAction,
   pagination,
+  paginationInfo,
   onPaginationChange,
   rowCount,
   pageCount,
   pageSizeOptions = [10, 20, 50],
   paginationLabels,
-  manualPagination = Boolean(pagination && onPaginationChange),
+  manualPagination = Boolean((pagination || paginationInfo) && onPaginationChange),
   hidePagination = false,
 }: DataTableProps<TData, TValue>) {
   const [internalPagination, setInternalPagination] =
@@ -138,21 +148,109 @@ function DataTable<TData, TValue>({
       pageSize: pageSizeOptions[0] ?? 10,
     })
 
-  const controlledPagination = pagination
-    ? {
-        pageIndex: pagination.pageIndex,
-        pageSize: pagination.pageSize,
-      }
+  const isPending = isLoading || isFetching
+
+  const basePagination = pagination
+    ? { pageIndex: pagination.pageIndex, pageSize: pagination.pageSize }
     : internalPagination
 
+  // Track the last *real* server pageSize we saw, and the previous info signature so we
+  // can detect the precise render where a fresh paginationInfo payload arrived.
+  const lastSeenInfoSizeRef = React.useRef<number | null>(null)
+  const prevInfoSigRef = React.useRef<string>('')
+  React.useEffect(() => {
+    if (paginationInfo && (paginationInfo.total || 0) > 0) {
+      lastSeenInfoSizeRef.current = paginationInfo.pageSize
+    }
+  }, [paginationInfo?.page, paginationInfo?.pageSize, paginationInfo?.total])
+
+  const infoSig = paginationInfo ? `${paginationInfo.page}|${paginationInfo.pageSize}|${paginationInfo.total}` : ''
+  const infoJustUpdated = infoSig !== '' && infoSig !== prevInfoSigRef.current
+  if (infoJustUpdated) prevInfoSigRef.current = infoSig
+
+  // Effective size used for the controlled state object passed to useReactTable *and* for
+  // the footer Select + range text. This keeps them consistent and drives "latest returned".
+  //
+  // We use the info pageSize (satisfying AC1) when:
+  //   - we have a real response for the exact page we are on, AND
+  //   - (the prop size still matches the last server size we knew, OR this is the exact
+  //     render in which the new info payload arrived)
+  // Otherwise we keep the caller's base size. This prevents:
+  //   - user size choice snapping to stale info on the change render
+  //   - initial empty info (total=0) polluting display/options
+  //   - cross-consumer (Dashboard vs Timesheets sharing history) stomping each other's local state
+  const infoIdx = paginationInfo ? Math.max(paginationInfo.page - 1, 0) : -999
+  const isCurrentPageRealInfo = paginationInfo && !isPending && (paginationInfo.total || 0) > 0 && infoIdx === basePagination.pageIndex
+  const lastSeen = lastSeenInfoSizeRef.current
+  const propMatchesLastServer = lastSeen == null || basePagination.pageSize === lastSeen
+
+  const shouldTakeInfoSize = isCurrentPageRealInfo && (propMatchesLastServer || infoJustUpdated)
+  const effectivePageSize = shouldTakeInfoSize ? paginationInfo!.pageSize : basePagination.pageSize
+
+  const controlledPagination = {
+    pageIndex: basePagination.pageIndex,
+    pageSize: effectivePageSize,
+  }
+
+  const resolvedRowCount = paginationInfo?.total ?? rowCount
+  const resolvedPageCount = paginationInfo
+    ? (paginationInfo.pageCount ?? Math.max(1, Math.ceil((paginationInfo.total || 0) / Math.max(1, paginationInfo.pageSize || 1))))
+    : pageCount
+
+  // displayPageSize is the same effective value so Select and range are consistent with
+  // the size we fed to the table state.
+  const displayPageSize = effectivePageSize
+
+  const resolvedPageSizeOptions = React.useMemo(() => {
+    const options = [...pageSizeOptions]
+    const candidate = paginationInfo && (paginationInfo.total || 0) > 0 ? paginationInfo.pageSize : null
+    if (candidate != null && !options.includes(candidate)) {
+      options.push(candidate)
+    }
+    return options.sort((a, b) => a - b)
+  }, [pageSizeOptions, paginationInfo])
+
   const handlePaginationChange: OnChangeFn<PaginationState> = (updater) => {
+    const nextPagination = resolveUpdater(updater, controlledPagination)
+
     if (onPaginationChange) {
-      onPaginationChange(updater)
+      onPaginationChange(nextPagination)
       return
     }
 
-    setInternalPagination((previous) => resolveUpdater(updater, previous))
+    setInternalPagination(nextPagination)
   }
+
+  // Guarded adoption effect:
+  // - Only considers a force when a *new* real info payload actually arrived (sig changed).
+  // - Only for responses that have data.
+  // - Only changes the size the caller sees (so its next request and its local state converge to what the backend returned).
+  // - The render-time rule above (infoJustUpdated || propMatchesLast) ensures that a user size choice
+  //   in the current render is not clobbered, and that initial empty info doesn't win.
+  React.useEffect(() => {
+    if (!infoJustUpdated) return
+    if (!onPaginationChange || isPending || !paginationInfo) return
+    const hasRealData = (paginationInfo.total || 0) > 0
+    if (!hasRealData) return
+    const fromInfo = {
+      pageIndex: Math.max(paginationInfo.page - 1, 0),
+      pageSize: paginationInfo.pageSize,
+    }
+    const fromProp = pagination
+      ? { pageIndex: pagination.pageIndex, pageSize: pagination.pageSize }
+      : undefined
+    if (!fromProp || fromProp.pageSize !== fromInfo.pageSize) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onPaginationChange({ ...fromProp, pageSize: fromInfo.pageSize } as any)
+    }
+  }, [
+    onPaginationChange,
+    isPending,
+    infoJustUpdated,
+    paginationInfo?.pageSize,
+    pagination?.pageIndex,
+    pagination?.pageSize,
+  ])
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -163,8 +261,8 @@ function DataTable<TData, TValue>({
     },
     getRowId,
     manualPagination,
-    rowCount,
-    pageCount,
+    rowCount: resolvedRowCount,
+    pageCount: resolvedPageCount,
     onPaginationChange: handlePaginationChange,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -172,7 +270,9 @@ function DataTable<TData, TValue>({
   const rows = table.getRowModel().rows
   const visibleColumns = table.getVisibleLeafColumns()
   const columnCount = Math.max(visibleColumns.length, 1)
-  const shouldShowPagination = !hidePagination && (pagination || rowCount || pageCount)
+  const shouldShowPagination =
+    !hidePagination &&
+    Boolean(pagination || paginationInfo || rowCount !== undefined || pageCount !== undefined)
   const shouldShowChrome = Boolean(
     title || description || eyebrow || actions || toolbar || shouldShowPagination || footer,
   )
@@ -316,7 +416,8 @@ function DataTable<TData, TValue>({
                 table={table}
                 labels={paginationLabels}
                 isFetching={isFetching}
-                pageSizeOptions={pageSizeOptions}
+                pageSizeOptions={resolvedPageSizeOptions}
+                displayPageSize={displayPageSize}
               />
             ) : null}
           </div>
@@ -355,16 +456,19 @@ function DataTablePagination<TData>({
   labels,
   isFetching,
   pageSizeOptions,
+  displayPageSize,
 }: {
   table: TanStackTable<TData>
   labels?: DataTablePaginationLabels
   isFetching?: boolean
   pageSizeOptions: number[]
+  displayPageSize?: number
 }) {
   const rowCount = table.getRowCount()
   const pagination = table.getState().pagination
-  const firstRow = rowCount === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
-  const lastRow = Math.min(rowCount, (pagination.pageIndex + 1) * pagination.pageSize)
+  const effectiveSize = displayPageSize ?? pagination.pageSize
+  const firstRow = rowCount === 0 ? 0 : pagination.pageIndex * effectiveSize + 1
+  const lastRow = Math.min(rowCount, (pagination.pageIndex + 1) * effectiveSize)
   const pageCount = table.getPageCount()
   const displayPageCount = pageCount === -1 ? "many" : pageCount
 
@@ -381,8 +485,8 @@ function DataTablePagination<TData>({
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="text-[12px]">{labels?.rowsPerPage ?? "Rows"}</span>
           <Select
-            value={String(pagination.pageSize)}
-            onValueChange={(value) => table.setPageSize(Number(value))}
+            value={String(effectiveSize)}
+            onValueChange={(value) => table.setPagination({ pageIndex: 0, pageSize: Number(value) })}
           >
             <SelectTrigger
               size="sm"
@@ -456,5 +560,6 @@ function DataTablePagination<TData>({
   )
 }
 
-export { DataTable }
-export type { DataTablePagination, DataTableProps }
+// eslint-disable-next-line react-refresh/only-export-components
+export { DataTable, derivePageCount }
+export type { DataTablePagination, DataTablePaginationInfo, DataTableProps }

@@ -50,9 +50,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const employeeCount = useAppSelector((state) => state.employeeManagement.employees.length)
   const permissions = useAppSelector((state) => state.auth.user?.permissions ?? [])
   const canReadEmployees = permissions.includes("employee.read")
+  const canManageShifts = permissions.includes("shift.create")
+  const canReadReports = permissions.includes("report.read")
 
   const visibleOperationsNav = operationsNav
-    .filter((item) => item.title !== "Team" || canReadEmployees)
+    .filter((item) => {
+      if (item.title === "Team") return canReadEmployees
+      if (item.title === "Schedule") return canManageShifts
+      if (item.title === "Reports") return canReadReports
+      return true
+    })
     .map((item) =>
       item.title === "Team" && employeeCount > 0
         ? { ...item, badge: String(employeeCount) }
@@ -136,14 +143,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="gap-2 px-0">
-          <SidebarGroupLabel className="h-6 px-4 text-[10px] font-normal tracking-[0.18em] uppercase text-muted-foreground/55">
-            Operations
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{renderNav(visibleOperationsNav)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleOperationsNav.length > 0 && (
+          <SidebarGroup className="gap-2 px-0">
+            <SidebarGroupLabel className="h-6 px-4 text-[10px] font-normal tracking-[0.18em] uppercase text-muted-foreground/55">
+              Operations
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">{renderNav(visibleOperationsNav)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarRail />

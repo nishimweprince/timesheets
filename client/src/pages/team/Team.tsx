@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, PaginationState } from "@tanstack/react-table"
 import { EditIcon, MailIcon, PlusIcon, RefreshCcwIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -23,7 +23,9 @@ import { cn } from "@/lib/utils"
 import {
   createTeam,
   fetchEmployees,
+  fetchEmployeesPage,
   fetchTeams,
+  fetchTeamsPage,
   inviteEmployee,
   resendEmployeeInvitation,
   updateEmployee,
@@ -120,34 +122,69 @@ function TeamPage() {
   const dispatch = useAppDispatch()
   const employees = useAppSelector((state) => state.employeeManagement.employees)
   const teams = useAppSelector((state) => state.employeeManagement.teams)
+  const employeesPage = useAppSelector((state) => state.employeeManagement.employeesPage)
+  const teamsPage = useAppSelector((state) => state.employeeManagement.teamsPage)
   const status = useAppSelector((state) => state.employeeManagement.status)
   const [activeTab, setActiveTab] = React.useState<Tab>("employees")
   const [query, setQuery] = React.useState("")
+  const [debouncedQuery, setDebouncedQuery] = React.useState("")
+  const [employeesPagination, setEmployeesPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
+  const [teamsPagination, setTeamsPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
   const [editingEmployee, setEditingEmployee] = React.useState<Employee | null>(null)
   const [editingTeam, setEditingTeam] = React.useState<TeamRecord | null>(null)
 
+  // Lookup fetch: full-ish lists used by dropdowns (managers, team checkboxes)
+  // and the manager-name lookup in the teams table, independent of pagination.
   React.useEffect(() => {
     dispatch(fetchEmployees())
     dispatch(fetchTeams())
   }, [dispatch])
 
+  React.useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedQuery(query.trim())
+      setEmployeesPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }))
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [query])
+
+  React.useEffect(() => {
+    dispatch(
+      fetchEmployeesPage({
+        page: employeesPagination.pageIndex + 1,
+        pageSize: employeesPagination.pageSize,
+        search: debouncedQuery || undefined,
+      }),
+    )
+  }, [dispatch, employeesPagination.pageIndex, employeesPagination.pageSize, debouncedQuery])
+
+  React.useEffect(() => {
+    dispatch(
+      fetchTeamsPage({ page: teamsPagination.pageIndex + 1, pageSize: teamsPagination.pageSize }),
+    )
+  }, [dispatch, teamsPagination.pageIndex, teamsPagination.pageSize])
+
+  const refreshCurrentPages = React.useCallback(() => {
+    dispatch(
+      fetchEmployeesPage({
+        page: employeesPagination.pageIndex + 1,
+        pageSize: employeesPagination.pageSize,
+        search: debouncedQuery || undefined,
+      }),
+    )
+    dispatch(
+      fetchTeamsPage({ page: teamsPagination.pageIndex + 1, pageSize: teamsPagination.pageSize }),
+    )
+  }, [dispatch, employeesPagination, teamsPagination, debouncedQuery])
+
   const activeEmployees = employees.filter((employee) => employee.status === MembershipStatus.ACTIVE).length
   const pendingEmployees = employees.filter((employee) => employee.status === MembershipStatus.PENDING).length
-
-  const filteredEmployees = React.useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return employees
-    return employees.filter((employee) =>
-      [
-        employeeName(employee),
-        employee.email,
-        employee.employeeNumber ?? "",
-        employee.jobTitle ?? "",
-        employee.roleName ?? "",
-        teamNames(employee),
-      ].some((value) => value.toLowerCase().includes(needle)),
-    )
-  }, [employees, query])
 
   const employeeColumns = React.useMemo<ColumnDef<Employee>[]>(() => [
     {
@@ -156,7 +193,7 @@ function TeamPage() {
       cell: ({ row }) => (
         <div className="min-w-0">
           <div className="truncate font-medium">{employeeName(row.original)}</div>
-          <div className="truncate text-xs text-muted-foreground">{row.original.email}</div>
+          <div className="truncate text-xs! text-muted-foreground">{row.original.email}</div>
         </div>
       ),
       meta: { width: "16rem" },
@@ -167,14 +204,14 @@ function TeamPage() {
       cell: ({ row }) => (
         <div className="min-w-0">
           <div className="truncate">{row.original.jobTitle || "-"}</div>
-          <div className="truncate text-xs text-muted-foreground">{row.original.employeeNumber || "No employee number"}</div>
+          <div className="truncate text-xs! text-muted-foreground">{row.original.employeeNumber || "No employee number"}</div>
         </div>
       ),
     },
     {
       id: "teams",
       header: "Teams",
-      cell: ({ row }) => <span className="line-clamp-2 text-muted-foreground">{teamNames(row.original)}</span>,
+      cell: ({ row }) => <span className="line-clamp-2 text-muted-foreground!">{teamNames(row.original)}</span>,
     },
     {
       accessorKey: "roleName",
@@ -190,7 +227,7 @@ function TeamPage() {
           <span className={cn("inline-flex h-6 items-center border px-2 text-xs uppercase", statusClass(row.original.status))}>
             {row.original.status.toLowerCase()}
           </span>
-         {row?.original?.invitation?.status ? <span className="text-[11px] text-muted-foreground">{invitationLabel(row.original)}</span> : null}
+         {row.original.invitation.status && ["expired", "pending"].includes(row.original.invitation.status) ? <span className="text-[11px] text-muted-foreground">{invitationLabel(row.original)}</span> : null}
         </div>
       ),
       meta: { align: "right", width: "8rem" },
@@ -332,9 +369,9 @@ function TeamPage() {
                   </div>
                 ) : null}
                 {activeTab === "employees" ? (
-                  <InviteEmployeeDialog employees={employees} teams={teams} />
+                  <InviteEmployeeDialog employees={employees} teams={teams} onMutated={refreshCurrentPages} />
                 ) : (
-                  <TeamDialog employees={employees} mode="create" />
+                  <TeamDialog employees={employees} mode="create" onMutated={refreshCurrentPages} />
                 )}
               </div>
             </div>
@@ -345,13 +382,18 @@ function TeamPage() {
                 title="Employee directory"
                 description="Manage employee profiles, access status, roles, and team assignments."
                 columns={employeeColumns}
-                data={filteredEmployees}
+                data={employeesPage.data}
                 getRowId={(employee) => employee.membershipId}
-                isLoading={status.employees === "loading"}
+                pagination={employeesPagination}
+                paginationInfo={employeesPage}
+                onPaginationChange={setEmployeesPagination}
+                rowCount={employeesPage.total}
+                pageSizeOptions={[10, 25, 50]}
+                isLoading={status.employeesPage === "loading" && employeesPage.data.length === 0}
+                isFetching={status.employeesPage === "loading" && employeesPage.data.length > 0}
                 emptyTitle="No employees yet"
                 emptyDescription="Invite an employee to start building the team directory."
-                emptyAction={<InviteEmployeeDialog employees={employees} teams={teams} />}
-                hidePagination
+                emptyAction={<InviteEmployeeDialog employees={employees} teams={teams} onMutated={refreshCurrentPages} />}
               />
             ) : (
               <DataTable
@@ -359,13 +401,18 @@ function TeamPage() {
                 title="Team structure"
                 description="Create operating teams and assign managers for scheduling and reporting."
                 columns={teamColumns}
-                data={teams}
+                data={teamsPage.data}
                 getRowId={(team) => team.id}
-                isLoading={status.teams === "loading"}
+                pagination={teamsPagination}
+                paginationInfo={teamsPage}
+                onPaginationChange={setTeamsPagination}
+                rowCount={teamsPage.total}
+                pageSizeOptions={[10, 25, 50]}
+                isLoading={status.teamsPage === "loading" && teamsPage.data.length === 0}
+                isFetching={status.teamsPage === "loading" && teamsPage.data.length > 0}
                 emptyTitle="No teams yet"
                 emptyDescription="Create a team to group employees for operations."
-                emptyAction={<TeamDialog employees={employees} mode="create" />}
-                hidePagination
+                emptyAction={<TeamDialog employees={employees} mode="create" onMutated={refreshCurrentPages} />}
               />
             )}
           </div>
@@ -377,6 +424,7 @@ function TeamPage() {
           employee={editingEmployee}
           employees={employees}
           teams={teams}
+          onMutated={refreshCurrentPages}
           onClose={() => setEditingEmployee(null)}
         />
       ) : null}
@@ -385,6 +433,7 @@ function TeamPage() {
           employees={employees}
           mode="edit"
           team={editingTeam}
+          onMutated={refreshCurrentPages}
           onClose={() => setEditingTeam(null)}
         />
       ) : null}
@@ -409,7 +458,15 @@ function SummaryCard({ label, value, description }: { label: string; value: numb
   )
 }
 
-function InviteEmployeeDialog({ employees, teams }: { employees: Employee[]; teams: TeamRecord[] }) {
+function InviteEmployeeDialog({
+  employees,
+  teams,
+  onMutated,
+}: {
+  employees: Employee[]
+  teams: TeamRecord[]
+  onMutated?: () => void
+}) {
   const dispatch = useAppDispatch()
   const isLoading = useAppSelector((state) => state.employeeManagement.status.invite === "loading")
   const [open, setOpen] = React.useState(false)
@@ -434,6 +491,7 @@ function InviteEmployeeDialog({ employees, teams }: { employees: Employee[]; tea
       reset()
       setOpen(false)
       dispatch(fetchTeams())
+      onMutated?.()
     } catch (err) {
       showApiErrorToast(err)
     }
@@ -472,11 +530,13 @@ function EmployeeDialog({
   employee,
   employees,
   teams,
+  onMutated,
   onClose,
 }: {
   employee: Employee
   employees: Employee[]
   teams: TeamRecord[]
+  onMutated?: () => void
   onClose: () => void
 }) {
   const dispatch = useAppDispatch()
@@ -501,6 +561,7 @@ function EmployeeDialog({
       })).unwrap()
       toast.success("Employee updated")
       dispatch(fetchTeams())
+      onMutated?.()
       onClose()
     } catch (err) {
       showApiErrorToast(err)
@@ -622,11 +683,13 @@ function TeamDialog({
   employees,
   mode,
   team,
+  onMutated,
   onClose,
 }: {
   employees: Employee[]
   mode: "create" | "edit"
   team?: TeamRecord
+  onMutated?: () => void
   onClose?: () => void
 }) {
   const dispatch = useAppDispatch()
@@ -661,6 +724,7 @@ function TeamDialog({
       }
       reset()
       setOpen(false)
+      onMutated?.()
       onClose?.()
     } catch (err) {
       showApiErrorToast(err)

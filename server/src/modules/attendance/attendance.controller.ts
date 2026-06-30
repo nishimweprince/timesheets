@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
-import { ClockDto } from './dto/attendance.dto';
+import { ClockDto, HistoryQueryDto } from './dto/attendance.dto';
 import { AttendanceEventType } from './entities/attendance-event.entity';
 import { AttendanceService } from './attendance.service';
 
@@ -19,8 +19,8 @@ export class AttendanceController {
 
   @Get('me/history')
   @Permissions('attendance.read.self')
-  history(@CurrentUser() user: RequestUser) {
-    return this.attendanceService.history(user);
+  history(@CurrentUser() user: RequestUser, @Query() query: HistoryQueryDto) {
+    return this.attendanceService.history(user, query);
   }
 
   @Post('me/clock-in')

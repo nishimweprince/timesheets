@@ -2,10 +2,12 @@
 
 import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
+import { PlayIcon, SquareIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -22,13 +24,28 @@ import {
 } from "@/components/ui/select"
 import { DataTable } from "@/components/reusable/tables"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-import { fetchHistory } from "@/states/features/attendance.slice"
+import { fetchHistory, fetchHistorySummary } from "@/states/features/attendance.slice"
+import { fetchAssignments, fetchInstances } from "@/states/features/scheduling.slice"
+import { ShiftAssignmentStatus, ShiftInstanceStatus } from "@/lib/api/scheduling.api"
+import { useClockSession } from "@/hooks/use-clock-session"
 import {
   formatDate,
+  formatTime,
   sessionToEntry,
   statusClassNames,
   type RecentEntry,
 } from "@/lib/attendance.utils"
+
+function shiftDayLabel(iso: string) {
+  const date = new Date(iso)
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+
+  if (date.toDateString() === today.toDateString()) return "Today"
+  if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow"
+  return formatDate(iso)
+}
 
 const columns: ColumnDef<RecentEntry>[] = [
   {
@@ -75,7 +92,27 @@ const Timesheets = () => {
   const dispatch = useAppDispatch()
 
   const history = useAppSelector((s) => s.attendance.history)
-  const isLoading = useAppSelector((s) => s.attendance.status.history === "loading")
+  const historySummary = useAppSelector((s) => s.attendance.historySummary)
+  const isHistoryLoading = useAppSelector((s) => s.attendance.status.history === "loading")
+  const isLoading = isHistoryLoading && history.data.length === 0
+  const isFetching = isHistoryLoading && history.data.length > 0
+  const permissions = useAppSelector((s) => s.auth.user?.permissions ?? [])
+  const membershipId = useAppSelector((s) => s.auth.user?.membershipId)
+  const instances = useAppSelector((s) => s.scheduling.instances)
+  const assignments = useAppSelector((s) => s.scheduling.assignments)
+
+  const canClockInOut = permissions.includes("attendance.clock_in.self")
+  const canViewShifts = permissions.includes("shift.read")
+
+  const {
+    currentSession,
+    isOnShift,
+    clockInLoading,
+    clockOutLoading,
+    actionLoading,
+    handleClockIn,
+    handleClockOut,
+  } = useClockSession()
 
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("All")
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -89,37 +126,58 @@ const Timesheets = () => {
   }
 
   React.useEffect(() => {
-    dispatch(fetchHistory())
+    dispatch(
+      fetchHistory({
+        page: pagination.pageIndex + 1,
+        pageSize: pagination.pageSize,
+        status: statusFilter === "All" ? undefined : statusFilter,
+      })
+    )
+  }, [dispatch, pagination.pageIndex, pagination.pageSize, statusFilter])
+
+  React.useEffect(() => {
+    dispatch(fetchHistorySummary())
   }, [dispatch])
 
-  const allEntries = React.useMemo(() => history.map(sessionToEntry), [history])
+  React.useEffect(() => {
+    if (!canViewShifts) return
+    dispatch(fetchInstances())
+    dispatch(fetchAssignments())
+  }, [dispatch, canViewShifts])
 
-  const filteredEntries = React.useMemo(() => {
-    if (statusFilter === "All") return allEntries
-    return allEntries.filter((e) => e.status === statusFilter)
-  }, [allEntries, statusFilter])
+  const myUpcomingShifts = React.useMemo(() => {
+    if (!membershipId) return []
+    const now = new Date().getTime()
+    return assignments
+      .filter((a) => a.employeeMembershipId === membershipId && a.status === ShiftAssignmentStatus.ACTIVE)
+      .map((a) => instances.find((i) => i.id === a.shiftInstanceId))
+      .filter(
+        (i): i is NonNullable<typeof i> =>
+          !!i && i.status === ShiftInstanceStatus.SCHEDULED && new Date(i.endAt).getTime() >= now
+      )
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+  }, [assignments, instances, membershipId])
 
-  const paginatedEntries = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize
-    return filteredEntries.slice(start, start + pagination.pageSize)
-  }, [filteredEntries, pagination])
+  const [nextShift, ...laterShifts] = myUpcomingShifts
+
+  const entries = React.useMemo(() => history.data.map(sessionToEntry), [history.data])
 
   const totalHours = React.useMemo(
     () =>
       Math.round(
-        history.reduce((sum, s) => sum + ((s.netMinutes ?? s.grossMinutes ?? 0) / 60), 0) * 10
+        historySummary.reduce((sum, s) => sum + ((s.netMinutes ?? s.grossMinutes ?? 0) / 60), 0) * 10
       ) / 10,
-    [history]
+    [historySummary]
   )
 
   const daysWorked = React.useMemo(
-    () => new Set(history.map((s) => formatDate(s.actualClockInAt))).size,
-    [history]
+    () => new Set(historySummary.map((s) => formatDate(s.actualClockInAt))).size,
+    [historySummary]
   )
 
   const pendingCount = React.useMemo(
-    () => allEntries.filter((e) => e.status === "Pending").length,
-    [allEntries]
+    () => historySummary.map(sessionToEntry).filter((e) => e.status === "Pending").length,
+    [historySummary]
   )
 
   const summaryCards = [
@@ -143,6 +201,107 @@ const Timesheets = () => {
 
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+            {/* Clock In / Out */}
+            {canClockInOut && (
+              <Card className="border-primary/30">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                        Current Shift
+                      </CardDescription>
+                      <CardTitle className="text-lg font-semibold tracking-tight">
+                        {isOnShift ? "On duty" : "Clocked out"}
+                      </CardTitle>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground tabular-nums">
+                      {isOnShift && currentSession
+                        ? `Started ${formatTime(currentSession.actualClockInAt)}`
+                        : "Last shift ended today"}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="lg"
+                      className="h-11 rounded-none px-8 text-sm font-medium"
+                      onClick={isOnShift ? handleClockOut : handleClockIn}
+                      variant={isOnShift ? "destructive" : "default"}
+                      disabled={actionLoading}
+                    >
+                      {isOnShift ? (
+                        <>
+                          <SquareIcon data-icon="inline-start" />
+                          {clockOutLoading ? "Clocking out…" : "Clock Out"}
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon data-icon="inline-start" />
+                          {clockInLoading ? "Clocking in…" : "Clock In"}
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="text-sm text-muted-foreground">
+                      {isOnShift
+                        ? "You are currently recording time. Tap clock out when your shift ends."
+                        : "Ready to start your shift? Use the button to begin tracking."}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* My shifts */}
+            {canViewShifts && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                    Schedule
+                  </CardDescription>
+                  <CardTitle className="text-base font-medium">My shifts</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-0">
+                  {nextShift ? (
+                    <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border/60 py-3 pl-4 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-primary">
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-[0.12em] text-primary">
+                          {shiftDayLabel(nextShift.startAt)}
+                        </div>
+                        <div className="text-lg font-semibold tabular-nums tracking-tight">
+                          {formatTime(nextShift.startAt)} – {formatTime(nextShift.endAt)}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {formatDate(nextShift.startAt)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="py-3 pl-4 text-sm text-muted-foreground">
+                      No upcoming shifts scheduled.
+                    </p>
+                  )}
+
+                  {laterShifts.length > 0 && (
+                    <ul className="flex flex-col">
+                      {laterShifts.slice(0, 5).map((shift) => (
+                        <li
+                          key={shift.id}
+                          className="flex items-center justify-between border-b border-border/40 py-2.5 pl-4 text-sm last:border-b-0"
+                        >
+                          <span className="text-muted-foreground">{shiftDayLabel(shift.startAt)}</span>
+                          <span className="tabular-nums">
+                            {formatTime(shift.startAt)} – {formatTime(shift.endAt)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-3">
               {summaryCards.map((m, idx) => (
@@ -167,13 +326,15 @@ const Timesheets = () => {
               eyebrow="Attendance"
               title="My timesheets"
               columns={columns}
-              data={paginatedEntries}
+              data={entries}
               getRowId={(entry) => entry.id}
               pagination={pagination}
+              paginationInfo={history}
               onPaginationChange={setPagination}
-              rowCount={filteredEntries.length}
+              rowCount={history.total}
               pageSizeOptions={[8, 16, 32]}
               isLoading={isLoading}
+              isFetching={isFetching}
               emptyTitle="No timesheet entries"
               emptyDescription="Clock in to start recording your attendance."
               toolbar={

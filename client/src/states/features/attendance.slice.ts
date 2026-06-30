@@ -1,16 +1,30 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import { attendanceApi, type AttendanceException, type ClockPayload, type WorkSession } from '@/lib/api/attendance.api'
+import {
+  attendanceApi,
+  type AttendanceException,
+  type ClockPayload,
+  type HistoryQueryParams,
+  type WorkSession,
+} from '@/lib/api/attendance.api'
+import type { PaginatedResult } from '@/lib/api/pagination'
 
 type LoadStatus = 'idle' | 'loading' | 'error'
 
+const emptyHistoryPage: PaginatedResult<WorkSession> = { data: [], total: 0, page: 1, pageSize: 10 }
+
 interface AttendanceState {
   currentSession: WorkSession | null
-  history: WorkSession[]
+  history: PaginatedResult<WorkSession>
+  historySummary: WorkSession[]
   orgSessions: WorkSession[]
   exceptions: AttendanceException[]
+  latestRequests: {
+    history?: string
+  }
   status: {
     currentSession: LoadStatus
     history: LoadStatus
+    historySummary: LoadStatus
     orgSessions: LoadStatus
     exceptions: LoadStatus
     clockIn: LoadStatus
@@ -21,12 +35,15 @@ interface AttendanceState {
 
 const initialState: AttendanceState = {
   currentSession: null,
-  history: [],
+  history: emptyHistoryPage,
+  historySummary: [],
   orgSessions: [],
   exceptions: [],
+  latestRequests: {},
   status: {
     currentSession: 'idle',
     history: 'idle',
+    historySummary: 'idle',
     orgSessions: 'idle',
     exceptions: 'idle',
     clockIn: 'idle',
@@ -39,9 +56,17 @@ export const fetchCurrentSession = createAsyncThunk('attendance/fetchCurrentSess
   attendanceApi.currentSession()
 )
 
-export const fetchHistory = createAsyncThunk('attendance/fetchHistory', () =>
-  attendanceApi.history()
+export const fetchHistory = createAsyncThunk(
+  'attendance/fetchHistory',
+  (params?: HistoryQueryParams) => attendanceApi.history(params)
 )
+
+// Fetches a generous, unpaginated-feeling window of recent sessions for stat
+// cards/charts that need broader coverage than the interactive table page.
+export const fetchHistorySummary = createAsyncThunk('attendance/fetchHistorySummary', async () => {
+  const result = await attendanceApi.history({ page: 1, pageSize: 50 })
+  return result.data
+})
 
 export const fetchOrgSessions = createAsyncThunk('attendance/fetchOrgSessions', () =>
   attendanceApi.orgSessions()
@@ -84,12 +109,28 @@ const attendanceSlice = createSlice({
       })
       .addCase(fetchCurrentSession.rejected, (state) => { state.status.currentSession = 'error' })
 
-      .addCase(fetchHistory.pending, (state) => { state.status.history = 'loading' })
+      .addCase(fetchHistory.pending, (state, action) => {
+        state.status.history = 'loading'
+        state.latestRequests.history = action.meta.requestId
+      })
       .addCase(fetchHistory.fulfilled, (state, action) => {
+        if (state.latestRequests.history !== action.meta.requestId) return
         state.status.history = 'idle'
         state.history = action.payload
+        state.latestRequests.history = undefined
       })
-      .addCase(fetchHistory.rejected, (state) => { state.status.history = 'error' })
+      .addCase(fetchHistory.rejected, (state, action) => {
+        if (state.latestRequests.history !== action.meta.requestId) return
+        state.status.history = 'error'
+        state.latestRequests.history = undefined
+      })
+
+      .addCase(fetchHistorySummary.pending, (state) => { state.status.historySummary = 'loading' })
+      .addCase(fetchHistorySummary.fulfilled, (state, action) => {
+        state.status.historySummary = 'idle'
+        state.historySummary = action.payload
+      })
+      .addCase(fetchHistorySummary.rejected, (state) => { state.status.historySummary = 'error' })
 
       .addCase(fetchOrgSessions.pending, (state) => { state.status.orgSessions = 'loading' })
       .addCase(fetchOrgSessions.fulfilled, (state, action) => {

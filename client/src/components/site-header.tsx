@@ -81,7 +81,7 @@ export function SiteHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="#" className="flex items-center gap-2">
+                <Link to="/profile" className="flex items-center gap-2">
                   <UserIcon className="size-4" />
                   Profile
                 </Link>

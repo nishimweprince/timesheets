@@ -6,6 +6,7 @@ export type ApiErrorContext =
   | 'login'
   | 'forgot-password'
   | 'reset-password'
+  | 'change-password'
   | 'logout'
   | 'generic'
 
@@ -18,6 +19,7 @@ const CONTEXT_TITLES: Record<ApiErrorContext, string> = {
   login: 'Could not sign in',
   'forgot-password': 'Could not send reset link',
   'reset-password': 'Could not reset password',
+  'change-password': 'Could not update password',
   logout: 'Could not sign out',
   generic: 'Something went wrong',
 }
@@ -71,6 +73,10 @@ export const AUTH_TOASTS = {
   resetPasswordSuccess: {
     title: 'Password updated',
     description: 'Sign in with your new password.',
+  },
+  changePasswordSuccess: {
+    title: 'Password updated',
+    description: 'Your account password has been changed.',
   },
 } as const
 

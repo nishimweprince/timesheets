@@ -21,4 +21,8 @@ export const authApi = {
   resetPassword(body: { token: string; password: string }): Promise<{ success: true }> {
     return apiRequest<{ success: true }>('/auth/reset-password', { method: 'POST', body })
   },
+
+  changePassword(body: { currentPassword: string; newPassword: string }): Promise<{ success: true }> {
+    return apiRequest<{ success: true }>('/auth/me/password', { method: 'POST', body })
+  },
 }

@@ -17,6 +17,12 @@ export class AttendanceController {
     return this.attendanceService.currentSession(user);
   }
 
+  @Get('me/effective-policy')
+  @Permissions('attendance.read.self')
+  effectivePolicy(@CurrentUser() user: RequestUser) {
+    return this.attendanceService.getEffectivePolicyRules(user);
+  }
+
   @Get('me/history')
   @Permissions('attendance.read.self')
   history(@CurrentUser() user: RequestUser, @Query() query: HistoryQueryDto) {

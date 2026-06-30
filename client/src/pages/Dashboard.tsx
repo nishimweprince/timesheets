@@ -28,6 +28,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { DataTable } from "@/components/reusable/tables"
+import { CameraModal } from "@/components/reusable/cards/CameraModal"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import { fetchHistory, fetchHistorySummary } from "@/states/features/attendance.slice"
 import { WorkSessionStatus } from "@/lib/api/attendance.api"
@@ -107,9 +108,26 @@ const Dashboard = () => {
     clockInLoading,
     clockOutLoading,
     actionLoading,
+    effectivePolicy,
     handleClockIn,
     handleClockOut,
   } = useClockSession()
+
+  const [cameraModalOpen, setCameraModalOpen] = React.useState(false)
+  const [pendingAction, setPendingAction] = React.useState<'in' | 'out' | null>(null)
+
+  const handleClockButton = () => {
+    const needsPhoto = isOnShift
+      ? effectivePolicy?.requireClockOutPhoto
+      : effectivePolicy?.requireClockInPhoto
+    if (needsPhoto) {
+      setPendingAction(isOnShift ? 'out' : 'in')
+      setCameraModalOpen(true)
+    } else {
+      if (isOnShift) handleClockOut()
+      else handleClockIn()
+    }
+  }
 
   const [recentPagination, setRecentPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -208,7 +226,7 @@ const Dashboard = () => {
                     <Button
                       size="lg"
                       className="h-11 rounded-none px-8 text-sm font-medium"
-                      onClick={isOnShift ? handleClockOut : handleClockIn}
+                      onClick={handleClockButton}
                       variant={isOnShift ? "destructive" : "default"}
                       disabled={actionLoading}
                     >
@@ -234,6 +252,18 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
+
+            <CameraModal
+              isOpen={cameraModalOpen}
+              onClose={() => { setCameraModalOpen(false); setPendingAction(null) }}
+              heading={pendingAction === 'in' ? 'Photo required to clock in' : 'Photo required to clock out'}
+              onCapture={(mediaAssetId) => {
+                setCameraModalOpen(false)
+                if (pendingAction === 'in') handleClockIn(mediaAssetId)
+                else handleClockOut(mediaAssetId)
+                setPendingAction(null)
+              }}
+            />
 
             {/* Metrics grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -22,7 +22,6 @@ export class CloudinaryService {
         public_id: publicId,
         folder,
         timestamp,
-        resource_type: 'image'
       },
       this.config.getOrThrow<string>('CLOUDINARY_API_SECRET')
     );

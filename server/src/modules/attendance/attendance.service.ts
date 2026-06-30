@@ -342,4 +342,9 @@ export class AttendanceService {
       ...extra
     };
   }
+
+  async getEffectivePolicyRules(user: RequestUser) {
+    const { rules } = await this.policiesService.effectivePolicy(user.organizationId, user.membershipId);
+    return rules;
+  }
 }

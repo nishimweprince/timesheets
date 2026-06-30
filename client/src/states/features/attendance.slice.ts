@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import {
   attendanceApi,
   type AttendanceException,
+  type AttendancePolicyRules,
   type ClockPayload,
   type HistoryQueryParams,
   type WorkSession,
@@ -18,6 +19,7 @@ interface AttendanceState {
   historySummary: WorkSession[]
   orgSessions: WorkSession[]
   exceptions: AttendanceException[]
+  effectivePolicy: AttendancePolicyRules | null
   latestRequests: {
     history?: string
   }
@@ -39,6 +41,7 @@ const initialState: AttendanceState = {
   historySummary: [],
   orgSessions: [],
   exceptions: [],
+  effectivePolicy: null,
   latestRequests: {},
   status: {
     currentSession: 'idle',
@@ -54,6 +57,10 @@ const initialState: AttendanceState = {
 
 export const fetchCurrentSession = createAsyncThunk('attendance/fetchCurrentSession', () =>
   attendanceApi.currentSession()
+)
+
+export const fetchEffectivePolicy = createAsyncThunk('attendance/fetchEffectivePolicy', () =>
+  attendanceApi.effectivePolicy()
 )
 
 export const fetchHistory = createAsyncThunk(
@@ -108,6 +115,10 @@ const attendanceSlice = createSlice({
         state.currentSession = action.payload
       })
       .addCase(fetchCurrentSession.rejected, (state) => { state.status.currentSession = 'error' })
+
+      .addCase(fetchEffectivePolicy.fulfilled, (state, action) => {
+        state.effectivePolicy = action.payload
+      })
 
       .addCase(fetchHistory.pending, (state, action) => {
         state.status.history = 'loading'

@@ -5,6 +5,7 @@ import {
   clockIn,
   clockOut,
   fetchCurrentSession,
+  fetchEffectivePolicy,
   fetchHistory,
 } from "@/states/features/attendance.slice"
 import { WorkSessionStatus } from "@/lib/api/attendance.api"
@@ -18,9 +19,11 @@ export function useClockSession() {
   const clockInLoading = useAppSelector((s) => s.attendance.status.clockIn === "loading")
   const clockOutLoading = useAppSelector((s) => s.attendance.status.clockOut === "loading")
   const storedCoords = useAppSelector((s) => s.location.coords)
+  const effectivePolicy = useAppSelector((s) => s.attendance.effectivePolicy)
 
   React.useEffect(() => {
     dispatch(fetchCurrentSession())
+    dispatch(fetchEffectivePolicy())
   }, [dispatch])
 
   const isOnShift = currentSession?.status === WorkSessionStatus.OPEN
@@ -60,7 +63,7 @@ export function useClockSession() {
       )
     })
 
-  const handleClockIn = async () => {
+  const handleClockIn = async (cameraEvidenceId?: string) => {
     try {
       const location = await getLocation()
       await dispatch(
@@ -69,6 +72,7 @@ export function useClockSession() {
           clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
           location: { ...location, source: "browser", permissionState: "granted" },
+          ...(cameraEvidenceId ? { cameraEvidenceId } : {}),
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
@@ -78,7 +82,7 @@ export function useClockSession() {
     }
   }
 
-  const handleClockOut = async () => {
+  const handleClockOut = async (cameraEvidenceId?: string) => {
     try {
       const location = await getLocation()
       await dispatch(
@@ -87,6 +91,7 @@ export function useClockSession() {
           clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
           location: { ...location, source: "browser", permissionState: "granted" },
+          ...(cameraEvidenceId ? { cameraEvidenceId } : {}),
         })
       ).unwrap()
       dispatch(fetchCurrentSession())
@@ -102,6 +107,7 @@ export function useClockSession() {
     clockInLoading,
     clockOutLoading,
     actionLoading: clockInLoading || clockOutLoading,
+    effectivePolicy,
     handleClockIn,
     handleClockOut,
   }

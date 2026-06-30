@@ -67,6 +67,12 @@ export interface ClockPayload {
   reason?: string
 }
 
+export interface AttendancePolicyRules {
+  requireClockInPhoto: boolean
+  requireClockOutPhoto: boolean
+  requireLocation: boolean
+}
+
 function clockHeaders(): Record<string, string> {
   return { 'Idempotency-Key': crypto.randomUUID() }
 }
@@ -130,5 +136,9 @@ export const attendanceApi = {
 
   exceptions(): Promise<AttendanceException[]> {
     return apiRequest<AttendanceException[]>('/attendance/exceptions')
+  },
+
+  effectivePolicy(): Promise<AttendancePolicyRules> {
+    return apiRequest<AttendancePolicyRules>('/attendance/me/effective-policy')
   },
 }

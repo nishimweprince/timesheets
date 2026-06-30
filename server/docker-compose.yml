@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: timesheets
+      POSTGRES_USER: timesheets
+      POSTGRES_PASSWORD: timesheets
+    ports:
+      - "5432:5432"
+    volumes:
+      - timesheets_pg_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timesheets -d timesheets"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  timesheets_pg_data:

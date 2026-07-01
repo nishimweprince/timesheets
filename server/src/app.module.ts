@@ -14,6 +14,7 @@ import { MediaModule } from './modules/media/media.module';
 import { PoliciesModule } from './modules/policies/policies.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './modules/authorization/guards/permissions.guard';
@@ -40,6 +41,7 @@ import { ResponseMessageInterceptor } from './common/interceptors/response-messa
     PoliciesModule,
     SchedulingModule,
     AttendanceModule,
+    ReportsModule,
     HealthModule
   ],
   providers: [

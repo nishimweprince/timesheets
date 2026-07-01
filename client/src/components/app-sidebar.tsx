@@ -43,7 +43,7 @@ const mainNav: NavItem[] = [
 const operationsNav: NavItem[] = [
   { title: "Schedule", url: "/scheduling", icon: CalendarIcon },
   { title: "Policies", url: "/policies", icon: ShieldCheckIcon },
-  { title: "Reports", url: "#", icon: BarChart3Icon },
+  { title: "Reports", url: "/reports", icon: BarChart3Icon },
   { title: "Team", url: "/team", icon: UsersIcon },
 ]
 

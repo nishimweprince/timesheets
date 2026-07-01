@@ -5,6 +5,7 @@ import employeeManagementReducer from '../features/employee-management.slice'
 import schedulingReducer from '../features/scheduling.slice'
 import locationReducer from '../features/location.slice'
 import policiesReducer from '../features/policies.slice'
+import reportsReducer from '../features/reports.slice'
 import { onSessionChange, onSessionClear } from '@/lib/auth-session'
 import { clearAuth, setAuth } from '../features/auth.slice'
 
@@ -16,6 +17,7 @@ export const store = configureStore({
     scheduling: schedulingReducer,
     location: locationReducer,
     policies: policiesReducer,
+    reports: reportsReducer,
   },
 })
 

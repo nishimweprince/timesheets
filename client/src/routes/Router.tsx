@@ -14,6 +14,7 @@ import Timesheets from '../pages/timesheets/Timesheets'
 import Scheduling from '../pages/scheduling/Scheduling'
 import Team from '../pages/team/Team'
 import Policies from '../pages/policies/Policies'
+import Reports from '../pages/reports/Reports'
 import Profile from '../pages/profile/Profile'
 
 const Router = () => {
@@ -30,6 +31,9 @@ const Router = () => {
         <Route path="/auth/signout" element={<Signout />} />
         <Route element={<PermissionGuard permission="policy.read" />}>
           <Route path="/policies" element={<Policies />} />
+        </Route>
+        <Route element={<PermissionGuard permission="report.read" />}>
+          <Route path="/reports" element={<Reports />} />
         </Route>
         <Route element={<LocationGuard />}>
           <Route path="/dashboard" element={<Dashboard />} />

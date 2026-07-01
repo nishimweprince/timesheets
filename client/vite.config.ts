@@ -11,6 +11,9 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss()
   ],
+  server: {
+    allowedHosts: ['timesheets.nishimweprince.dev'],
+  },
   resolve: {
     dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     alias: {

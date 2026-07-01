@@ -191,46 +191,48 @@ function TeamPage() {
       id: "employee",
       header: "Employee",
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium">{employeeName(row.original)}</div>
-          <div className="truncate text-xs! text-muted-foreground">{row.original.email}</div>
+        <div className="min-w-0 space-y-0.5">
+          <div className="truncate font-medium leading-5">{employeeName(row.original)}</div>
+          <div className="truncate text-[13px] leading-5 text-muted-foreground">{row.original.email}</div>
         </div>
       ),
-      meta: { width: "16rem" },
+      meta: { width: "17rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "jobTitle",
       header: "Profile",
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate">{row.original.jobTitle || "-"}</div>
-          <div className="truncate text-xs! text-muted-foreground">{row.original.employeeNumber || "No employee number"}</div>
+        <div className="min-w-0 space-y-0.5">
+          <div className="truncate leading-5">{row.original.jobTitle || "-"}</div>
+          <div className="truncate text-[13px] leading-5 text-muted-foreground">{row.original.employeeNumber || "No employee number"}</div>
         </div>
       ),
+      meta: { width: "14rem", cellClassName: "py-3" },
     },
     {
       id: "teams",
       header: "Teams",
-      cell: ({ row }) => <span className="line-clamp-2 text-muted-foreground!">{teamNames(row.original)}</span>,
+      cell: ({ row }) => <span className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{teamNames(row.original)}</span>,
+      meta: { width: "16rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "roleName",
       header: "Role",
       cell: ({ getValue }) => <span>{getValue<string | null>() ?? "-"}</span>,
-      meta: { width: "9rem" },
+      meta: { width: "10rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
         <div className="flex flex-col items-end gap-1">
-          <span className={cn("inline-flex h-6 items-center border px-2 text-xs uppercase", statusClass(row.original.status))}>
+          <span className={cn("inline-flex h-6 items-center border px-2 text-[13px] uppercase", statusClass(row.original.status))}>
             {row.original.status.toLowerCase()}
           </span>
-         {row.original.invitation.status && ["expired", "pending"].includes(row.original.invitation.status) ? <span className="text-[11px] text-muted-foreground">{invitationLabel(row.original)}</span> : null}
+         {row.original.invitation.status && ["expired", "pending"].includes(row.original.invitation.status) ? <span className="text-[13px] text-muted-foreground">{invitationLabel(row.original)}</span> : null}
         </div>
       ),
-      meta: { align: "right", width: "8rem" },
+      meta: { align: "right", width: "9rem", cellClassName: "py-3" },
     },
     {
       id: "actions",
@@ -269,7 +271,7 @@ function TeamPage() {
           </Button>
         </div>
       ),
-      meta: { align: "right", width: "6rem" },
+      meta: { align: "right", width: "6.5rem", cellClassName: "py-3" },
     },
   ], [dispatch, status.resendInvite])
 
@@ -278,20 +280,22 @@ function TeamPage() {
       accessorKey: "name",
       header: "Team",
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+      meta: { width: "16rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "managerMembershipId",
       header: "Manager",
       cell: ({ getValue }) => {
         const manager = employees.find((employee) => employee.membershipId === getValue<string | null>())
-        return <span className="text-muted-foreground">{manager ? employeeName(manager) : "-"}</span>
+        return <span className="text-[13px] text-muted-foreground">{manager ? employeeName(manager) : "-"}</span>
       },
+      meta: { width: "16rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "memberCount",
       header: "Members",
       cell: ({ getValue }) => <span className="tabular-nums">{getValue<number>()}</span>,
-      meta: { align: "right", width: "8rem" },
+      meta: { align: "right", width: "8rem", cellClassName: "py-3" },
     },
     {
       id: "actions",
@@ -312,7 +316,7 @@ function TeamPage() {
           </Button>
         </div>
       ),
-      meta: { align: "right", width: "4rem" },
+      meta: { align: "right", width: "4.5rem", cellClassName: "py-3" },
     },
   ], [employees])
 
@@ -345,7 +349,7 @@ function TeamPage() {
                     type="button"
                     onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "relative h-9 px-4 text-xs capitalize transition-colors",
+                      "relative h-9 px-4 text-[13px] capitalize transition-colors",
                       activeTab === tab
                         ? "border-b-2 border-primary font-medium text-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -364,7 +368,7 @@ function TeamPage() {
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Search team"
-                      className="h-8 w-56 rounded-none pl-8 text-xs"
+                      className="h-11 w-64 rounded-none pl-9 text-sm"
                     />
                   </div>
                 ) : null}
@@ -383,6 +387,7 @@ function TeamPage() {
                 description="Manage employee profiles, access status, roles, and team assignments."
                 columns={employeeColumns}
                 data={employeesPage.data}
+                tableClassName="min-w-[980px]"
                 getRowId={(employee) => employee.membershipId}
                 pagination={employeesPagination}
                 paginationInfo={employeesPage}
@@ -402,6 +407,7 @@ function TeamPage() {
                 description="Create operating teams and assign managers for scheduling and reporting."
                 columns={teamColumns}
                 data={teamsPage.data}
+                tableClassName="min-w-[700px]"
                 getRowId={(team) => team.id}
                 pagination={teamsPagination}
                 paginationInfo={teamsPage}
@@ -445,14 +451,14 @@ function SummaryCard({ label, value, description }: { label: string; value: numb
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardDescription className="text-xs tracking-[0.12em] uppercase">{label}</CardDescription>
+        <CardDescription className="text-[13px] tracking-[0.12em] uppercase">{label}</CardDescription>
         <CardTitle className="flex items-center gap-2 text-3xl font-semibold tracking-tighter tabular-nums">
           <UsersIcon className="size-4 text-muted-foreground" />
           {value}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-[13px] text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   )
@@ -636,7 +642,6 @@ function EmployeeForm({
           options={managerOptions}
           placeholder="Select manager"
           searchPlaceholder="Search managers"
-          className="h-9 text-sm"
         />
       </Field>
       <Field label="Role">
@@ -645,7 +650,6 @@ function EmployeeForm({
           onChange={(value) => setForm((current) => ({ ...current, roleName: value }))}
           options={roleSelectOptions}
           placeholder="Select role"
-          className="h-9 text-sm"
         />
       </Field>
       {mode === "edit" ? (
@@ -655,12 +659,11 @@ function EmployeeForm({
             onChange={(value) => setForm((current) => ({ ...current, status: value as MembershipStatus }))}
             options={statusOptions}
             placeholder="Select status"
-            className="h-9 text-sm"
           />
         </Field>
       ) : null}
       <div className="sm:col-span-2">
-        <Label className="text-xs">Teams</Label>
+        <Label className="text-[13px]">Teams</Label>
         <div className="mt-2 grid max-h-40 gap-2 overflow-y-auto border border-border p-3 sm:grid-cols-2">
           {teams.length ? teams.map((team) => (
             <label key={team.id} className="flex items-center gap-2 text-sm">
@@ -762,7 +765,6 @@ function TeamDialog({
                 options={managerOptions}
                 placeholder="Select manager"
                 searchPlaceholder="Search managers"
-                className="h-9 text-sm"
               />
             </Field>
           </div>
@@ -780,7 +782,7 @@ function TeamDialog({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-2">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-[13px]">{label}</Label>
       {children}
     </div>
   )

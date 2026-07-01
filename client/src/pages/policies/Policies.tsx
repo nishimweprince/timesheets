@@ -152,25 +152,26 @@ function PoliciesPage() {
       accessorKey: "name",
       header: "Policy",
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-medium">{row.original.name}</div>
-          <div className="truncate text-sm text-muted-foreground">
+        <div className="min-w-0 space-y-0.5">
+          <div className="truncate text-sm font-medium leading-5">{row.original.name}</div>
+          <div className="truncate text-[13px] leading-5 text-muted-foreground">
             {countActiveRequirements(row.original.rules)} active requirements
           </div>
         </div>
       ),
-      meta: { width: "14rem" },
+      meta: { width: "16rem", cellClassName: "py-3" },
     },
     {
       id: "rules",
       header: "Rules",
       cell: ({ row }) => (
-        <ul className="space-y-0.5 text-sm text-muted-foreground">
+        <ul className="space-y-1 text-[13px] leading-5 text-muted-foreground">
           {summarizePolicyRules(row.original.rules).slice(0, 3).map((line) => (
-            <li key={line} className="truncate">{line}</li>
+            <li key={line} className="line-clamp-2">{line}</li>
           ))}
         </ul>
       ),
+      meta: { width: "28rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "active",
@@ -187,17 +188,17 @@ function PoliciesPage() {
           {row.original.active ? "Active" : "Inactive"}
         </span>
       ),
-      meta: { align: "right", width: "7rem" },
+      meta: { align: "right", width: "8rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "createdAt",
       header: "Created",
       cell: ({ getValue }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="text-[13px] tabular-nums text-muted-foreground">
           {new Date(getValue<string>()).toLocaleDateString()}
         </span>
       ),
-      meta: { align: "right", width: "8rem" },
+      meta: { align: "right", width: "9rem", cellClassName: "py-3" },
     },
     ...(canManage
       ? [
@@ -220,7 +221,7 @@ function PoliciesPage() {
                 </Button>
               </div>
             ),
-            meta: { align: "right" as const, width: "4rem" },
+            meta: { align: "right" as const, width: "4.5rem", cellClassName: "py-3" },
           },
         ]
       : []),
@@ -231,28 +232,30 @@ function PoliciesPage() {
       accessorKey: "name",
       header: "Site",
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-medium">{row.original.name}</div>
-          <div className="truncate text-sm text-muted-foreground">Work location</div>
+        <div className="min-w-0 space-y-0.5">
+          <div className="truncate text-sm font-medium leading-5">{row.original.name}</div>
+          <div className="truncate text-[13px] leading-5 text-muted-foreground">Work location</div>
         </div>
       ),
+      meta: { width: "18rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "timezone",
       header: "Timezone",
       cell: ({ getValue }) => (
-        <span className="font-mono text-sm text-muted-foreground">{getValue<string>()}</span>
+        <span className="font-mono text-[13px] leading-5 text-muted-foreground">{getValue<string>()}</span>
       ),
+      meta: { width: "18rem", cellClassName: "py-3" },
     },
     {
       accessorKey: "createdAt",
       header: "Added",
       cell: ({ getValue }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="text-[13px] tabular-nums text-muted-foreground">
           {new Date(getValue<string>()).toLocaleDateString()}
         </span>
       ),
-      meta: { align: "right", width: "8rem" },
+      meta: { align: "right", width: "9rem", cellClassName: "py-3" },
     },
   ], [])
 
@@ -344,6 +347,7 @@ function PoliciesPage() {
                 description="Define how clock-in and clock-out are validated across your organization."
                 columns={policyColumns}
                 data={policiesPage.data}
+                tableClassName="min-w-[860px]"
                 getRowId={(policy) => policy.id}
                 pagination={policiesPagination}
                 paginationInfo={policiesPage}
@@ -364,6 +368,7 @@ function PoliciesPage() {
                 description="Register physical locations that policies can reference for geofence checks."
                 columns={workSiteColumns}
                 data={workSitesPage.data}
+                tableClassName="min-w-[720px]"
                 getRowId={(site) => site.id}
                 pagination={workSitesPagination}
                 paginationInfo={workSitesPage}
@@ -553,7 +558,7 @@ function CreatePolicyDialog({ onMutated }: { onMutated?: () => void }) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" className="min-w-32" onClick={() => setOpen(true)}>
         <PlusIcon data-icon="inline-start" />
         New policy
       </Button>
@@ -679,7 +684,7 @@ function AssignPolicyDialog({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} disabled={policiesTotal === 0}>
+      <Button size="sm" variant="outline" className="min-w-32" onClick={() => setOpen(true)} disabled={policiesTotal === 0}>
         <Building2Icon data-icon="inline-start" />
         Assign
       </Button>
@@ -734,7 +739,6 @@ function AssignPolicyDialog({
               options={employeeOptions}
               placeholder={employeeStatus === "loading" ? "Loading employees…" : "Select employee"}
               searchPlaceholder="Search employees"
-              className="h-10 text-sm"
             />
           ) : null}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -792,7 +796,7 @@ function CreateWorkSiteDialog({ onMutated }: { onMutated?: () => void }) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" className="min-w-32" onClick={() => setOpen(true)}>
         <PlusIcon data-icon="inline-start" />
         New site
       </Button>

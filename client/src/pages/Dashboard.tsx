@@ -80,7 +80,7 @@ const recentEntryColumns: ColumnDef<RecentEntry>[] = [
     header: "Status",
     cell: ({ row }) => (
       <span
-        className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${statusClassNames[row.original.status]}`}
+        className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${statusClassNames[row.original.status]}`}
       >
         {row.original.status}
       </span>
@@ -99,8 +99,11 @@ const Dashboard = () => {
   const isRecentFetching = isHistoryLoading && history.data.length > 0
   const orgSessions = useAppSelector((s) => s.attendance.orgSessions)
   const permissions = useAppSelector((s) => s.auth.user?.permissions ?? [])
+  const roleNames = useAppSelector((s) => s.auth.user?.roleNames ?? [])
   const canClockInOut = permissions.includes("attendance.clock_in.self")
   const canManageShifts = permissions.includes("shift.create")
+  const isOrganizationAdmin = roleNames.includes("Organization Admin")
+  const canUseEmployeeAttendance = canClockInOut && !isOrganizationAdmin
 
   const {
     currentSession,
@@ -111,7 +114,7 @@ const Dashboard = () => {
     effectivePolicy,
     handleClockIn,
     handleClockOut,
-  } = useClockSession()
+  } = useClockSession(canUseEmployeeAttendance)
 
   const [cameraModalOpen, setCameraModalOpen] = React.useState(false)
   const [pendingAction, setPendingAction] = React.useState<'in' | 'out' | null>(null)
@@ -135,10 +138,12 @@ const Dashboard = () => {
   })
 
   React.useEffect(() => {
+    if (!canUseEmployeeAttendance) return
+
     dispatch(
       fetchHistory({ page: recentPagination.pageIndex + 1, pageSize: recentPagination.pageSize })
     )
-  }, [dispatch, recentPagination.pageIndex, recentPagination.pageSize])
+  }, [canUseEmployeeAttendance, dispatch, recentPagination.pageIndex, recentPagination.pageSize])
 
   React.useEffect(() => {
     dispatch(fetchHistorySummary())
@@ -202,19 +207,19 @@ const Dashboard = () => {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
             {/* Clock In / Out */}
-            {canClockInOut && (
+            {canUseEmployeeAttendance && (
               <Card className="border-primary/30">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                      <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                         Current Shift
                       </CardDescription>
                       <CardTitle className="text-lg font-semibold tracking-tight">
                         {isOnShift ? "On duty" : "Clocked out"}
                       </CardTitle>
                     </div>
-                    <div className="text-right text-xs text-muted-foreground tabular-nums">
+                    <div className="text-right text-[13px] text-muted-foreground tabular-nums">
                       {isOnShift && currentSession
                         ? `Started ${formatTime(currentSession.actualClockInAt)}`
                         : "Last shift ended today"}
@@ -253,24 +258,26 @@ const Dashboard = () => {
               </Card>
             )}
 
-            <CameraModal
-              isOpen={cameraModalOpen}
-              onClose={() => { setCameraModalOpen(false); setPendingAction(null) }}
-              heading={pendingAction === 'in' ? 'Photo required to clock in' : 'Photo required to clock out'}
-              onCapture={(mediaAssetId) => {
-                setCameraModalOpen(false)
-                if (pendingAction === 'in') handleClockIn(mediaAssetId)
-                else handleClockOut(mediaAssetId)
-                setPendingAction(null)
-              }}
-            />
+            {canUseEmployeeAttendance && (
+              <CameraModal
+                isOpen={cameraModalOpen}
+                onClose={() => { setCameraModalOpen(false); setPendingAction(null) }}
+                heading={pendingAction === 'in' ? 'Photo required to clock in' : 'Photo required to clock out'}
+                onCapture={(mediaAssetId) => {
+                  setCameraModalOpen(false)
+                  if (pendingAction === 'in') handleClockIn(mediaAssetId)
+                  else handleClockOut(mediaAssetId)
+                  setPendingAction(null)
+                }}
+              />
+            )}
 
             {/* Metrics grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {metrics.map((m, idx) => (
                 <Card key={idx}>
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-xs uppercase tracking-[0.12em]">
+                    <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                       {m.label}
                     </CardDescription>
                     <CardTitle className="text-3xl font-semibold tabular-nums tracking-tighter">
@@ -278,18 +285,18 @@ const Dashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground">{m.sub}</p>
+                    <p className="text-[13px] text-muted-foreground">{m.sub}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
             {/* Quick navigation */}
-            <div className={cn("grid gap-4", canManageShifts && "sm:grid-cols-2")}>
+            <div className={cn("grid gap-4", canManageShifts && canUseEmployeeAttendance && "sm:grid-cols-2")}>
               {canManageShifts && (
                 <Card className="group">
                   <CardHeader className="pb-2">
-                    <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                    <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                       Operations
                     </CardDescription>
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
@@ -298,13 +305,13 @@ const Dashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[13px] leading-5 text-muted-foreground">
                       Create shifts, manage templates and assign employees.
                     </p>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 shrink-0 rounded-none text-xs"
+                      className="shrink-0"
                       asChild
                     >
                       <Link to="/scheduling">Open</Link>
@@ -313,36 +320,38 @@ const Dashboard = () => {
                 </Card>
               )}
 
-              <Card className="group">
-                <CardHeader className="pb-2">
-                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
-                    My records
-                  </CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-base font-medium">
-                    <FileTextIcon className="size-4 text-muted-foreground" />
-                    Timesheets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    View and manage your full attendance history.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 shrink-0 rounded-none text-xs"
-                    asChild
-                  >
-                    <Link to="/timesheets">Open</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              {canUseEmployeeAttendance && (
+                <Card className="group">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
+                      My records
+                    </CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <FileTextIcon className="size-4 text-muted-foreground" />
+                      Timesheets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between">
+                    <p className="text-[13px] leading-5 text-muted-foreground">
+                      View and manage your full attendance history.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      asChild
+                    >
+                      <Link to="/timesheets">Open</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Weekly hours chart */}
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                   Attendance
                 </CardDescription>
                 <CardTitle className="text-base font-medium">Hours this week</CardTitle>
@@ -383,27 +392,29 @@ const Dashboard = () => {
             </Card>
 
             {/* Recent activity */}
-            <DataTable
-              eyebrow="Recent"
-              title="Recent entries"
-              columns={recentEntryColumns}
-              data={recentEntries}
-              getRowId={(entry) => entry.id}
-              pagination={recentPagination}
-              paginationInfo={history}
-              onPaginationChange={setRecentPagination}
-              rowCount={history.total}
-              pageSizeOptions={[4, 8, 12]}
-              isLoading={isRecentLoading}
-              isFetching={isRecentFetching}
-              emptyTitle="No recent entries"
-              emptyDescription="Clock in to start a new timesheet entry."
-              actions={
-                <Button variant="outline" size="sm" className="h-8 text-xs rounded-none" asChild>
-                  <Link to="/timesheets">View all</Link>
-                </Button>
-              }
-            />
+            {canUseEmployeeAttendance && (
+              <DataTable
+                eyebrow="Recent"
+                title="Recent entries"
+                columns={recentEntryColumns}
+                data={recentEntries}
+                getRowId={(entry) => entry.id}
+                pagination={recentPagination}
+                paginationInfo={history}
+                onPaginationChange={setRecentPagination}
+                rowCount={history.total}
+                pageSizeOptions={[4, 8, 12]}
+                isLoading={isRecentLoading}
+                isFetching={isRecentFetching}
+                emptyTitle="No recent entries"
+                emptyDescription="Clock in to start a new timesheet entry."
+                actions={
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/timesheets">View all</Link>
+                  </Button>
+                }
+              />
+            )}
           </div>
         </div>
       </SidebarInset>

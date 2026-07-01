@@ -9,6 +9,7 @@ import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
+import Modal from "@/components/reusable/cards/Modal"
 import DatePicker from "@/components/reusable/inputs/DatePicker"
 import Select from "@/components/reusable/inputs/Select"
 import { DataTable } from "@/components/reusable/tables"
@@ -16,7 +17,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { showApiErrorToast } from "@/lib/api/errors"
-import type { ExceptionReportRow, HoursByEmployeeRow } from "@/lib/api/reports.api"
+import {
+  reportsApi,
+  type ExceptionReportRow,
+  type ExceptionsReportParams,
+  type HoursByEmployeeParams,
+  type HoursByEmployeeRow,
+} from "@/lib/api/reports.api"
 import { cn } from "@/lib/utils"
 import { fetchExceptionsReport, fetchHoursByEmployee } from "@/states/features/reports.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
@@ -24,6 +31,7 @@ import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 type Tab = "hours" | "exceptions"
 
 const ALL = "__all__"
+const REPORT_EXPORT_PAGE_SIZE = 100
 
 function employeeName(row: { firstName: string | null; lastName: string | null }): string {
   const name = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim()
@@ -51,6 +59,59 @@ function endOfDayIso(date: Date | undefined): string | undefined {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString()
 }
 
+function formatDateLabel(date: Date | undefined): string {
+  return date
+    ? date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : "—"
+}
+
+function formatRangeLabel(startDate: Date | undefined, endDate: Date | undefined): string {
+  if (!startDate && !endDate) return "All time"
+  return `${formatDateLabel(startDate)} → ${formatDateLabel(endDate)}`
+}
+
+async function fetchAllHoursByEmployee(
+  params: Omit<HoursByEmployeeParams, "page" | "pageSize">,
+): Promise<HoursByEmployeeRow[]> {
+  const rows: HoursByEmployeeRow[] = []
+  let page = 1
+
+  while (true) {
+    const result = await reportsApi.hoursByEmployee({
+      ...params,
+      page,
+      pageSize: REPORT_EXPORT_PAGE_SIZE,
+    })
+    rows.push(...result.data)
+
+    if (result.data.length === 0 || rows.length >= result.total) break
+    page += 1
+  }
+
+  return rows
+}
+
+async function fetchAllExceptions(
+  params: Omit<ExceptionsReportParams, "page" | "pageSize">,
+): Promise<ExceptionReportRow[]> {
+  const rows: ExceptionReportRow[] = []
+  let page = 1
+
+  while (true) {
+    const result = await reportsApi.exceptions({
+      ...params,
+      page,
+      pageSize: REPORT_EXPORT_PAGE_SIZE,
+    })
+    rows.push(...result.data)
+
+    if (result.data.length === 0 || rows.length >= result.total) break
+    page += 1
+  }
+
+  return rows
+}
+
 const Reports = () => {
   const dispatch = useAppDispatch()
   const hoursPage = useAppSelector((state) => state.reports.hoursByEmployee)
@@ -58,17 +119,20 @@ const Reports = () => {
   const status = useAppSelector((state) => state.reports.status)
 
   const [activeTab, setActiveTab] = React.useState<Tab>("hours")
-  const [startDate, setStartDate] = React.useState<Date | undefined>(undefined)
-  const [endDate, setEndDate] = React.useState<Date | undefined>(undefined)
+  const [hoursDay, setHoursDay] = React.useState<Date>(() => new Date())
+  const [reportModalOpen, setReportModalOpen] = React.useState(false)
+  const [reportStartDate, setReportStartDate] = React.useState<Date | undefined>(() => new Date())
+  const [reportEndDate, setReportEndDate] = React.useState<Date | undefined>(() => new Date())
+  const [isGeneratingReport, setIsGeneratingReport] = React.useState(false)
   const [severity, setSeverity] = React.useState<string>(ALL)
   const [exceptionStatus, setExceptionStatus] = React.useState<string>(ALL)
 
   const [hoursPagination, setHoursPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [exceptionsPagination, setExceptionsPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
 
-  const dateParams = React.useMemo(
-    () => ({ startDate: startOfDayIso(startDate), endDate: endOfDayIso(endDate) }),
-    [startDate, endDate],
+  const hoursDateParams = React.useMemo(
+    () => ({ startDate: startOfDayIso(hoursDay), endDate: endOfDayIso(hoursDay) }),
+    [hoursDay],
   )
 
   React.useEffect(() => {
@@ -76,10 +140,10 @@ const Reports = () => {
       fetchHoursByEmployee({
         page: hoursPagination.pageIndex + 1,
         pageSize: hoursPagination.pageSize,
-        ...dateParams,
+        ...hoursDateParams,
       }),
     )
-  }, [dispatch, hoursPagination.pageIndex, hoursPagination.pageSize, dateParams])
+  }, [dispatch, hoursPagination.pageIndex, hoursPagination.pageSize, hoursDateParams])
 
   React.useEffect(() => {
     dispatch(
@@ -88,10 +152,9 @@ const Reports = () => {
         pageSize: exceptionsPagination.pageSize,
         severity: severity === ALL ? undefined : severity,
         status: exceptionStatus === ALL ? undefined : exceptionStatus,
-        ...dateParams,
       }),
     )
-  }, [dispatch, exceptionsPagination.pageIndex, exceptionsPagination.pageSize, severity, exceptionStatus, dateParams])
+  }, [dispatch, exceptionsPagination.pageIndex, exceptionsPagination.pageSize, severity, exceptionStatus])
 
   const severityOptions = React.useMemo(() => {
     const distinct = Array.from(new Set(exceptionsPage.data.map((row) => row.severity))).filter(Boolean)
@@ -112,11 +175,7 @@ const Reports = () => {
     [hoursPage.data],
   )
 
-  const rangeLabel = React.useMemo(() => {
-    if (!startDate && !endDate) return "All time"
-    const fmt = (d?: Date) => (d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "…")
-    return `${fmt(startDate)} → ${fmt(endDate)}`
-  }, [startDate, endDate])
+  const hoursDayLabel = React.useMemo(() => formatDateLabel(hoursDay), [hoursDay])
 
   const hoursColumns = React.useMemo<ColumnDef<HoursByEmployeeRow>[]>(
     () => [
@@ -127,46 +186,47 @@ const Reports = () => {
           <div className="flex flex-col">
             <span className="font-medium text-foreground">{employeeName(row.original)}</span>
             {row.original.jobTitle ? (
-              <span className="text-xs text-muted-foreground">{row.original.jobTitle}</span>
+              <span className="text-[13px] leading-5 text-muted-foreground">{row.original.jobTitle}</span>
             ) : null}
           </div>
         ),
+        meta: { width: "16rem", cellClassName: "py-3" },
       },
       {
         accessorKey: "employeeNumber",
         header: "Emp. no.",
-        cell: ({ row }) => <span className="text-muted-foreground">{row.original.employeeNumber ?? "—"}</span>,
-        meta: { width: "110px" },
+        cell: ({ row }) => <span className="text-[13px] text-muted-foreground">{row.original.employeeNumber ?? "—"}</span>,
+        meta: { width: "120px", cellClassName: "py-3" },
       },
       {
         accessorKey: "sessionCount",
         header: "Sessions",
         cell: ({ row }) => <span className="tabular-nums">{row.original.sessionCount}</span>,
-        meta: { align: "right", width: "100px" },
+        meta: { align: "right", width: "108px", cellClassName: "py-3" },
       },
       {
         accessorKey: "netMinutes",
         header: "Net hours",
         cell: ({ row }) => <span className="tabular-nums font-medium">{formatHours(row.original.netMinutes)}</span>,
-        meta: { align: "right", width: "110px" },
+        meta: { align: "right", width: "120px", cellClassName: "py-3" },
       },
       {
         accessorKey: "grossMinutes",
         header: "Gross hours",
         cell: ({ row }) => <span className="tabular-nums">{formatHours(row.original.grossMinutes)}</span>,
-        meta: { align: "right", width: "110px" },
+        meta: { align: "right", width: "120px", cellClassName: "py-3" },
       },
       {
         accessorKey: "breakMinutes",
         header: "Breaks",
         cell: ({ row }) => <span className="tabular-nums">{formatHours(row.original.breakMinutes)}</span>,
-        meta: { align: "right", width: "100px" },
+        meta: { align: "right", width: "108px", cellClassName: "py-3" },
       },
       {
         accessorKey: "exceptionCount",
         header: "Exceptions",
         cell: ({ row }) => <span className="tabular-nums">{row.original.exceptionCount}</span>,
-        meta: { align: "right", width: "110px" },
+        meta: { align: "right", width: "120px", cellClassName: "py-3" },
       },
     ],
     [],
@@ -178,50 +238,95 @@ const Reports = () => {
         accessorKey: "employee",
         header: "Employee",
         cell: ({ row }) => <span className="font-medium text-foreground">{employeeName(row.original)}</span>,
+        meta: { width: "16rem", cellClassName: "py-3" },
       },
       {
         accessorKey: "code",
         header: "Code",
-        cell: ({ row }) => <span className="font-mono text-xs">{row.original.code}</span>,
-        meta: { width: "160px" },
+        cell: ({ row }) => <span className="font-mono text-[13px] leading-5">{row.original.code}</span>,
+        meta: { width: "170px", cellClassName: "py-3" },
       },
       {
         accessorKey: "severity",
         header: "Severity",
         cell: ({ row }) => (
-          <span className="inline-flex items-center border border-border/70 px-2 py-0.5 text-xs capitalize text-muted-foreground">
+          <span className="inline-flex items-center border border-border/70 px-2 py-0.5 text-[13px] capitalize text-muted-foreground">
             {row.original.severity}
           </span>
         ),
-        meta: { width: "110px" },
+        meta: { width: "120px", cellClassName: "py-3" },
       },
       {
         accessorKey: "message",
         header: "Message",
-        cell: ({ row }) => <span className="text-muted-foreground">{row.original.message}</span>,
+        cell: ({ row }) => <span className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{row.original.message}</span>,
+        meta: { width: "24rem", cellClassName: "py-3" },
       },
       {
         accessorKey: "status",
         header: "Status",
         cell: ({ row }) => <span className="capitalize">{row.original.status.toLowerCase()}</span>,
-        meta: { width: "110px" },
+        meta: { width: "120px", cellClassName: "py-3" },
       },
       {
         accessorKey: "createdAt",
         header: "Logged",
-        cell: ({ row }) => <span className="text-muted-foreground">{formatDateTime(row.original.createdAt)}</span>,
-        meta: { width: "180px" },
+        cell: ({ row }) => <span className="text-[13px] leading-5 text-muted-foreground">{formatDateTime(row.original.createdAt)}</span>,
+        meta: { width: "190px", cellClassName: "py-3" },
       },
     ],
     [],
   )
 
-  const exportPdf = () => {
+  const openReportModal = () => {
+    const defaultDate = activeTab === "hours" ? hoursDay : new Date()
+    setReportStartDate(defaultDate)
+    setReportEndDate(defaultDate)
+    setReportModalOpen(true)
+  }
+
+  const generateReport = async () => {
+    if (!reportStartDate || !reportEndDate) {
+      toast.error("Select a start and end date")
+      return
+    }
+
+    const reportStartTime = new Date(
+      reportStartDate.getFullYear(),
+      reportStartDate.getMonth(),
+      reportStartDate.getDate(),
+    ).getTime()
+    const reportEndTime = new Date(
+      reportEndDate.getFullYear(),
+      reportEndDate.getMonth(),
+      reportEndDate.getDate(),
+    ).getTime()
+
+    if (reportStartTime > reportEndTime) {
+      toast.error("Start date must be before end date")
+      return
+    }
+
+    setIsGeneratingReport(true)
+
     try {
       const doc = new jsPDF({ orientation: "landscape" })
       const generatedAt = new Date().toLocaleString()
+      const rangeLabel = formatRangeLabel(reportStartDate, reportEndDate)
+      const startDate = startOfDayIso(reportStartDate)
+      const endDate = endOfDayIso(reportEndDate)
 
       if (activeTab === "hours") {
+        const reportRows = await fetchAllHoursByEmployee({
+          startDate,
+          endDate,
+        })
+
+        if (reportRows.length === 0) {
+          toast.error("No hours found for selected range")
+          return
+        }
+
         doc.setFontSize(14)
         doc.text("Hours by employee", 14, 16)
         doc.setFontSize(9)
@@ -229,7 +334,7 @@ const Reports = () => {
         autoTable(doc, {
           startY: 28,
           head: [["Employee", "Emp. no.", "Job title", "Sessions", "Net hours", "Gross hours", "Breaks", "Exceptions"]],
-          body: hoursPage.data.map((row) => [
+          body: reportRows.map((row) => [
             employeeName(row),
             row.employeeNumber ?? "—",
             row.jobTitle ?? "—",
@@ -244,6 +349,18 @@ const Reports = () => {
         })
         doc.save(`hours-by-employee-${Date.now()}.pdf`)
       } else {
+        const reportRows = await fetchAllExceptions({
+          severity: severity === ALL ? undefined : severity,
+          status: exceptionStatus === ALL ? undefined : exceptionStatus,
+          startDate,
+          endDate,
+        })
+
+        if (reportRows.length === 0) {
+          toast.error("No exceptions found for selected range")
+          return
+        }
+
         doc.setFontSize(14)
         doc.text("Attendance exceptions", 14, 16)
         doc.setFontSize(9)
@@ -251,7 +368,7 @@ const Reports = () => {
         autoTable(doc, {
           startY: 28,
           head: [["Employee", "Code", "Severity", "Message", "Status", "Logged"]],
-          body: exceptionsPage.data.map((row) => [
+          body: reportRows.map((row) => [
             employeeName(row),
             row.code,
             row.severity,
@@ -264,13 +381,14 @@ const Reports = () => {
         })
         doc.save(`attendance-exceptions-${Date.now()}.pdf`)
       }
+      setReportModalOpen(false)
       toast.success("Report exported")
     } catch (err) {
       showApiErrorToast(err)
+    } finally {
+      setIsGeneratingReport(false)
     }
   }
-
-  const activeData = activeTab === "hours" ? hoursPage.data : exceptionsPage.data
 
   return (
     <SidebarProvider
@@ -296,13 +414,13 @@ const Reports = () => {
               <SummaryCard
                 label="Employees on page"
                 value={String(hoursPage.data.length)}
-                description={`${hoursPage.total} total in range`}
+                description={`${hoursPage.total} total on selected day`}
                 icon={UsersIcon}
               />
               <SummaryCard
                 label="Net hours on page"
                 value={formatHours(totalNetMinutes)}
-                description={rangeLabel}
+                description={hoursDayLabel}
                 icon={ClockIcon}
               />
               <SummaryCard
@@ -333,42 +451,104 @@ const Reports = () => {
               </div>
 
               <div className="flex flex-wrap items-end gap-2 pb-3 sm:pb-2">
-                <div className="w-40">
-                  <DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" toDate={endDate} />
-                </div>
-                <div className="w-40">
-                  <DatePicker value={endDate} onChange={setEndDate} placeholder="End date" fromDate={startDate} />
-                </div>
                 {activeTab === "exceptions" ? (
                   <>
                     <Select
                       value={severity}
                       options={severityOptions}
                       onChange={(value) => setSeverity(value)}
-                      className="h-10 w-36"
+                      className="w-48"
                     />
                     <Select
                       value={exceptionStatus}
                       options={statusOptions}
                       onChange={(value) => setExceptionStatus(value)}
-                      className="h-10 w-36"
+                      className="w-48"
                     />
                   </>
-                ) : null}
-                <Button type="button" variant="outline" onClick={exportPdf} disabled={activeData.length === 0}>
-                  <DownloadIcon className="mr-2 size-4" />
-                  Export PDF
+                ) : (
+                  <div className="w-48">
+                    <DatePicker
+                      value={hoursDay}
+                      onChange={(date) => {
+                        if (!date) return
+                        setHoursDay(date)
+                        setHoursPagination((current) => ({ ...current, pageIndex: 0 }))
+                      }}
+                      placeholder="Select day"
+                    />
+                  </div>
+                )}
+                <Button type="button" variant="outline" onClick={openReportModal}>
+                  <DownloadIcon className="size-4" />
+                  Generate report
                 </Button>
               </div>
             </div>
+
+            <Modal
+              isOpen={reportModalOpen}
+              onClose={() => setReportModalOpen(false)}
+              heading="Generate report"
+              className="!min-w-0 w-[min(92vw,34rem)] rounded-none"
+              headingClassName="text-base normal-case tracking-tight text-foreground"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      Start date
+                    </span>
+                    <DatePicker
+                      value={reportStartDate}
+                      onChange={setReportStartDate}
+                      placeholder="Start date"
+                      toDate={reportEndDate}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      End date
+                    </span>
+                    <DatePicker
+                      value={reportEndDate}
+                      onChange={setReportEndDate}
+                      placeholder="End date"
+                      fromDate={reportStartDate}
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none"
+                    onClick={() => setReportModalOpen(false)}
+                    disabled={isGeneratingReport}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="rounded-none"
+                    onClick={generateReport}
+                    disabled={isGeneratingReport}
+                  >
+                    <DownloadIcon className="size-4" />
+                    {isGeneratingReport ? "Generating..." : "Generate"}
+                  </Button>
+                </div>
+              </div>
+            </Modal>
 
             {activeTab === "hours" ? (
               <DataTable
                 eyebrow="Hours"
                 title="Hours by employee"
-                description="Aggregated net, gross, and break hours per employee over the selected range."
+                description={`Aggregated net, gross, and break hours per employee for ${hoursDayLabel}.`}
                 columns={hoursColumns}
                 data={hoursPage.data}
+                tableClassName="min-w-[900px]"
                 getRowId={(row) => row.membershipId}
                 pagination={hoursPagination}
                 paginationInfo={hoursPage}
@@ -377,16 +557,17 @@ const Reports = () => {
                 pageSizeOptions={[10, 25, 50]}
                 isLoading={status.hoursByEmployee === "loading" && hoursPage.data.length === 0}
                 isFetching={status.hoursByEmployee === "loading" && hoursPage.data.length > 0}
-                emptyTitle="No attendance in range"
-                emptyDescription="Adjust the date range to see hours worked per employee."
+                emptyTitle="No attendance on selected day"
+                emptyDescription="Select a different day to see hours worked per employee."
               />
             ) : (
               <DataTable
                 eyebrow="Exceptions"
                 title="Attendance exceptions"
-                description="Policy exceptions flagged on work sessions over the selected range."
+                description="Policy exceptions flagged on work sessions for the selected filters."
                 columns={exceptionColumns}
                 data={exceptionsPage.data}
+                tableClassName="min-w-[980px]"
                 getRowId={(row) => row.id}
                 pagination={exceptionsPagination}
                 paginationInfo={exceptionsPage}

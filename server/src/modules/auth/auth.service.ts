@@ -6,9 +6,11 @@ import { In, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from '../organizations/entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership, MembershipStatus } from '../organizations/entities/organization-membership.entity';
 import { MembershipRole } from '../authorization/entities/membership-role.entity';
 import { Role } from '../authorization/entities/role.entity';
+import { WorkSite } from '../policies/entities/work-site.entity';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { RefreshTokenSession } from './entities/refresh-token-session.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
@@ -30,7 +32,9 @@ export class AuthService {
     private readonly authorizationService: AuthorizationService,
     private readonly mailService: MailService,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(Organization) private readonly organizations: Repository<Organization>,
     @InjectRepository(OrganizationMembership) private readonly memberships: Repository<OrganizationMembership>,
+    @InjectRepository(WorkSite) private readonly workSites: Repository<WorkSite>,
     @InjectRepository(MembershipRole) private readonly membershipRoles: Repository<MembershipRole>,
     @InjectRepository(Role) private readonly roles: Repository<Role>,
     @InjectRepository(RefreshTokenSession) private readonly refreshSessions: Repository<RefreshTokenSession>,
@@ -181,29 +185,53 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.buildAuthUser(user, membership, permissions, roleNames, session.id)
+      user: await this.buildAuthUser(user, membership, permissions, roleNames, session.id)
     };
   }
 
-  private buildAuthUser(
+  private async buildAuthUser(
     user: User,
     membership: OrganizationMembership,
     permissions: string[],
     roleNames: string[],
     sessionId?: string
-  ): RequestUser {
+  ): Promise<RequestUser> {
     const fullName = `${user.firstName} ${user.lastName}`.trim();
+    const [organization, primaryWorkSite] = await Promise.all([
+      this.organizations.findOneByOrFail({ id: membership.organizationId }),
+      membership.primaryWorkSiteId
+        ? this.workSites.findOne({
+            where: {
+              id: membership.primaryWorkSiteId,
+              organizationId: membership.organizationId,
+              active: true
+            }
+          })
+        : Promise.resolve(null)
+    ]);
 
     return {
       userId: user.id,
       membershipId: membership.id,
       organizationId: membership.organizationId,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        defaultTimezone: organization.defaultTimezone
+      },
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       fullName: fullName || user.email,
       membershipStatus: membership.status,
       primaryWorkSiteId: membership.primaryWorkSiteId,
+      primaryWorkSite: primaryWorkSite
+        ? {
+            id: primaryWorkSite.id,
+            name: primaryWorkSite.name,
+            timezone: primaryWorkSite.timezone
+          }
+        : null,
       roleNames,
       permissions,
       sessionId

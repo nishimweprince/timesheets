@@ -94,7 +94,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                 aria-invalid={!!error}
                 disabled={readOnly}
                 className={cn(
-                  'h-10 w-full justify-between rounded-none border-field-border bg-field px-3 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20',
+                  'h-11 w-full justify-between rounded-none border-field-border bg-field px-4 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20',
                   className,
                 )}
               >
@@ -123,7 +123,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder={searchPlaceholder}
                 className={cn(
-                  'mb-1 h-8 w-full rounded-none border border-field-border bg-field px-2 text-sm outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/30',
+                  'mb-1 h-10 w-full rounded-none border border-field-border bg-field px-3 text-sm outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/30',
                   inputClassName,
                 )}
               />
@@ -135,7 +135,7 @@ const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
                       type="button"
                       disabled={option.disabled}
                       className={cn(
-                        'flex h-8 w-full items-center gap-2 rounded-none px-2 text-left text-sm outline-none transition-colors hover:bg-muted focus:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
+                        'flex h-9 w-full items-center gap-2 rounded-none px-3 text-left text-sm outline-none transition-colors hover:bg-muted focus:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
                         optionsClassName,
                       )}
                       onClick={() => {

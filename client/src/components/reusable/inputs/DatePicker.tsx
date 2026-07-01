@@ -86,7 +86,7 @@ const DatePicker = ({
           variant="outline"
           disabled={disabled}
           className={cn(
-            'h-10 w-full justify-start rounded-none border-field-border bg-field px-3 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30',
+            'h-11 w-full justify-start rounded-none border-field-border bg-field px-4 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30',
             !selectedDate && 'text-placeholder',
           )}
         >
@@ -118,7 +118,7 @@ const DatePicker = ({
                 onChange={(year) =>
                   setViewDate((current) => new Date(Number(year), current.getMonth(), 1))
                 }
-                className="h-8 px-2 text-sm"
+                className="h-10 px-3 text-sm"
               />
               <Select
                 value={String(viewDate.getMonth())}
@@ -129,7 +129,7 @@ const DatePicker = ({
                 onChange={(month) =>
                   setViewDate((current) => new Date(current.getFullYear(), Number(month), 1))
                 }
-                className="h-8 px-2 text-sm"
+                className="h-10 px-3 text-sm"
               />
             </div>
             <Button
@@ -143,7 +143,7 @@ const DatePicker = ({
             </Button>
           </div>
 
-          <div className="grid grid-cols-7 gap-px text-center text-[11px] text-muted-foreground">
+          <div className="grid grid-cols-7 gap-px text-center text-[13px] text-muted-foreground">
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
               <span key={`${day}-${index}`} className="py-1">
                 {day}
@@ -163,7 +163,7 @@ const DatePicker = ({
                   disabled={disabledDay}
                   onClick={() => selectDate(date)}
                   className={cn(
-                    'h-8 rounded-none text-sm outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
+                    'h-9 rounded-none text-sm outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
                     !currentMonth && 'text-muted-foreground/50',
                     selected && 'bg-primary text-primary-foreground hover:bg-primary',
                   )}

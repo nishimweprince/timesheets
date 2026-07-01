@@ -284,7 +284,7 @@ function DataTable<TData, TValue>({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
               {eyebrow ? (
-                <div className="text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase">
+                <div className="text-[13px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
                   {eyebrow}
                 </div>
               ) : null}
@@ -327,7 +327,7 @@ function DataTable<TData, TValue>({
                         key={header.id}
                         style={{ width: meta?.width }}
                         className={cn(
-                          "h-10 px-3 text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase",
+                          "h-10 px-3 text-[13px] font-normal uppercase",
                           alignmentClassNames[meta?.align ?? "left"],
                           meta?.className,
                           meta?.headerClassName,
@@ -474,29 +474,29 @@ function DataTablePagination<TData>({
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
         {isFetching ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : null}
-        <span className="tabular-nums text-[12px]">
+        <span className="tabular-nums">
           {firstRow}-{lastRow} of {rowCount}
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-[12px]">{labels?.rowsPerPage ?? "Rows"}</span>
+        <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <span>{labels?.rowsPerPage ?? "Rows"}</span>
           <Select
             value={String(effectiveSize)}
             onValueChange={(value) => table.setPagination({ pageIndex: 0, pageSize: Number(value) })}
           >
             <SelectTrigger
               size="sm"
-              className="h-7 w-16 border-field-border bg-field text-xs"
+              className="h-8 w-16 border-field-border bg-field text-[13px]"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="min-w-0 w-16 max-w-16">
               {pageSizeOptions.map((pageSize) => (
-                <SelectItem className="text-[12px] cursor-pointer" key={pageSize} value={String(pageSize)}>
+                <SelectItem className="cursor-pointer text-[13px]" key={pageSize} value={String(pageSize)}>
                   {pageSize}
                 </SelectItem>
               ))}
@@ -505,8 +505,8 @@ function DataTablePagination<TData>({
      
         </label>
 
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <span className="tabular-nums text-[12px]">
+        <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
+          <span className="tabular-nums">
             {labels?.page ?? "Page"} {pagination.pageIndex + 1} {labels?.of ?? "of"}{" "}
             {displayPageCount}
           </span>

@@ -79,7 +79,7 @@ const columns: ColumnDef<RecentEntry>[] = [
     header: "Status",
     cell: ({ row }) => (
       <span
-        className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${statusClassNames[row.original.status]}`}
+        className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${statusClassNames[row.original.status]}`}
       >
         {row.original.status}
       </span>
@@ -225,14 +225,14 @@ const Timesheets = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                      <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                         Current Shift
                       </CardDescription>
                       <CardTitle className="text-lg font-semibold tracking-tight">
                         {isOnShift ? "On duty" : "Clocked out"}
                       </CardTitle>
                     </div>
-                    <div className="text-right text-xs text-muted-foreground tabular-nums">
+                    <div className="text-right text-[13px] text-muted-foreground tabular-nums">
                       {isOnShift && currentSession
                         ? `Started ${formatTime(currentSession.actualClockInAt)}`
                         : "Last shift ended today"}
@@ -287,7 +287,7 @@ const Timesheets = () => {
             {canViewShifts && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                  <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                     Schedule
                   </CardDescription>
                   <CardTitle className="text-base font-medium">My shifts</CardTitle>
@@ -296,14 +296,14 @@ const Timesheets = () => {
                   {nextShift ? (
                     <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border/60 py-3 pl-4 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-primary">
                       <div>
-                        <div className="text-xs font-medium uppercase tracking-[0.12em] text-primary">
+                        <div className="text-[13px] font-medium uppercase tracking-[0.12em] text-primary">
                           {shiftDayLabel(nextShift.startAt)}
                         </div>
                         <div className="text-lg font-semibold tabular-nums tracking-tight">
                           {formatTime(nextShift.startAt)} – {formatTime(nextShift.endAt)}
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground tabular-nums">
+                      <span className="text-[13px] text-muted-foreground tabular-nums">
                         {formatDate(nextShift.startAt)}
                       </span>
                     </div>
@@ -337,7 +337,7 @@ const Timesheets = () => {
               {summaryCards.map((m, idx) => (
                 <Card key={idx}>
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-xs uppercase tracking-[0.12em]">
+                    <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                       {m.label}
                     </CardDescription>
                     <CardTitle className="text-3xl font-semibold tabular-nums tracking-tighter">
@@ -345,7 +345,7 @@ const Timesheets = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground">{m.sub}</p>
+                    <p className="text-[13px] text-muted-foreground">{m.sub}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -372,7 +372,7 @@ const Timesheets = () => {
                   value={statusFilter}
                   onValueChange={handleStatusFilterChange}
                 >
-                  <SelectTrigger className="h-8 w-36 rounded-none text-xs">
+                  <SelectTrigger className="h-11 w-48 text-sm">
                     <SelectValue placeholder="Filter status" />
                   </SelectTrigger>
                   <SelectContent>

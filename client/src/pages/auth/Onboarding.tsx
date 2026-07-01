@@ -96,7 +96,7 @@ const Onboarding = () => {
           <form onSubmit={submit} noValidate className="flex flex-col gap-5">
             {preview ? (
               <div className="border border-border bg-muted/30 p-3 text-sm">
-                <div className="text-xs tracking-[0.12em] text-muted-foreground uppercase">Invitation</div>
+                <div className="text-[13px] tracking-[0.12em] text-muted-foreground uppercase">Invitation</div>
                 <div className="mt-1 font-medium">{preview.email}</div>
               </div>
             ) : null}
@@ -164,7 +164,7 @@ const Onboarding = () => {
               </div>
             ) : null}
 
-            <Button type="submit" className="h-10 w-full rounded-none" disabled={isSubmitting || !preview}>
+            <Button type="submit" className="w-full" disabled={isSubmitting || !preview}>
               {isSubmitting ? (
                 <>
                   <Spinner data-icon="inline-start" />

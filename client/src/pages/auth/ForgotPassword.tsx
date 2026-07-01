@@ -85,7 +85,7 @@ const ForgotPassword = () => {
             required
           />
 
-          <Button type="submit" className="h-10 w-full rounded-none" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Spinner data-icon="inline-start" />

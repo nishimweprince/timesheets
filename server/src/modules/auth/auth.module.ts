@@ -6,7 +6,9 @@ import { MailModule } from '../mail/mail.module';
 import { MembershipRole } from '../authorization/entities/membership-role.entity';
 import { Role } from '../authorization/entities/role.entity';
 import { User } from '../organizations/entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
 import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
+import { WorkSite } from '../policies/entities/work-site.entity';
 import { RefreshTokenSession } from './entities/refresh-token-session.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { AuthService } from './auth.service';
@@ -17,7 +19,7 @@ import { AuthController } from './auth.controller';
     JwtModule.register({}),
     AuthorizationModule,
     MailModule,
-    TypeOrmModule.forFeature([User, OrganizationMembership, MembershipRole, Role, RefreshTokenSession, PasswordResetToken])
+    TypeOrmModule.forFeature([User, Organization, OrganizationMembership, WorkSite, MembershipRole, Role, RefreshTokenSession, PasswordResetToken])
   ],
   controllers: [AuthController],
   providers: [AuthService],

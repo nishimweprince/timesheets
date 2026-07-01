@@ -57,6 +57,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isSuperAdmin = roleNames.includes("Organization Admin")
   const canReadReports = permissions.includes("report.read")
 
+  const visibleMainNav = mainNav.filter((item) => {
+    if (item.title === "My Timesheets") return !isSuperAdmin
+    return true
+  })
+
   const visibleOperationsNav = operationsNav
     .filter((item) => {
       if (item.title === "Team") return canReadEmployees
@@ -84,13 +89,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             isActive={isActive}
             tooltip={item.title}
             className={cn(
-              "relative h-10 gap-2 rounded-none px-4 text-[13px] font-normal text-sidebar-foreground/72",
+              "relative h-11 gap-3 rounded-none px-4 text-[13px] font-medium text-sidebar-foreground/76",
               "transition-[background-color,color,box-shadow] duration-150",
               "hover:bg-sidebar-accent/55 hover:text-sidebar-foreground",
               "focus-visible:ring-1 focus-visible:ring-sidebar-ring/60",
               "before:absolute before:inset-y-2 before:left-0 before:w-px before:bg-transparent before:content-[''] before:transition-colors",
               "after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-sidebar-border/45 after:content-['']",
-              "data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-normal data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_18%,transparent)] data-[active=true]:before:bg-sidebar-primary",
+              "data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_18%,transparent)] data-[active=true]:before:bg-sidebar-primary",
             )}
           >
             <Link to={item.url}>
@@ -101,14 +106,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   "group-data-[active=true]/menu-button:border-sidebar-primary/30 group-data-[active=true]/menu-button:bg-sidebar-primary/10 group-data-[active=true]/menu-button:text-sidebar-primary",
                 )}
               >
-                <Icon className="size-3.5" />
+                <Icon className="size-4" />
               </span>
-              <span className="tracking-normal">{item.title}</span>
+              <span className="tracking-normal leading-5">{item.title}</span>
             </Link>
           </SidebarMenuButton>
 
           {item.badge && (
-            <SidebarMenuBadge className="right-4 top-2.5 h-5 min-w-5 border border-sidebar-border/60 bg-sidebar px-1.5 text-[13px] font-normal text-sidebar-foreground/60 tabular-nums peer-data-active/menu-button:border-sidebar-primary/30 peer-data-active/menu-button:bg-sidebar-primary/10 peer-data-active/menu-button:text-sidebar-primary">
+            <SidebarMenuBadge className="right-4 top-3 h-5 min-w-5 border border-sidebar-border/60 bg-sidebar px-1.5 text-[13px] font-normal text-sidebar-foreground/60 tabular-nums peer-data-active/menu-button:border-sidebar-primary/30 peer-data-active/menu-button:bg-sidebar-primary/10 peer-data-active/menu-button:text-sidebar-primary">
               {item.badge}
             </SidebarMenuBadge>
           )}
@@ -130,7 +135,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <span className="text-base font-medium tracking-tight ">
               Tuza Health
             </span>
-            <span className="text-xs! uppercase tracking-wider font-light text-muted-foreground letter-spacing-[0.02em]">
+            <span className="text-[13px] uppercase tracking-wider font-light text-muted-foreground letter-spacing-[0.02em]">
               Timesheets
             </span>
           </div>
@@ -139,19 +144,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
 
       {/* Nav content */}
-      <SidebarContent className="gap-5 py-4">
-        <SidebarGroup className="gap-2 px-0">
-          <SidebarGroupLabel className="h-6 px-4 text-sm text-muted-foreground">
+      <SidebarContent className="gap-6 py-4">
+        <SidebarGroup className="gap-2.5 px-0">
+          <SidebarGroupLabel className="h-7 px-4 text-[13px] font-medium text-muted-foreground">
             Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{renderNav(mainNav)}</SidebarMenu>
+            <SidebarMenu className="gap-1">{renderNav(visibleMainNav)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {visibleOperationsNav.length > 0 && (
-          <SidebarGroup className="gap-2 px-0">
-            <SidebarGroupLabel className="h-6 px-4 text-sm text-muted-foreground">
+          <SidebarGroup className="gap-2.5 px-0">
+            <SidebarGroupLabel className="h-7 px-4 text-[13px] font-medium text-muted-foreground">
               Operations
             </SidebarGroupLabel>
             <SidebarGroupContent>

@@ -81,40 +81,42 @@ const templateColumns: ColumnDef<ShiftTemplate>[] = [
     accessorKey: "name",
     header: "Name",
     cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
+    meta: { width: "16rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "startTime",
     header: "Start",
     cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
-    meta: { width: "7rem" },
+    meta: { width: "8rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "endTime",
     header: "End",
     cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
-    meta: { width: "7rem" },
+    meta: { width: "8rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "timezone",
     header: "Timezone",
     cell: ({ getValue }) => (
-      <span className="text-muted-foreground">{getValue<string>()}</span>
+      <span className="text-[13px] text-muted-foreground">{getValue<string>()}</span>
     ),
+    meta: { width: "16rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "active",
     header: "Status",
     cell: ({ getValue }) =>
       getValue<boolean>() ? (
-        <span className="inline-flex h-6 items-center border border-success/20 bg-success/10 px-2 text-xs uppercase text-success">
+        <span className="inline-flex h-6 items-center border border-success/20 bg-success/10 px-2 text-[13px] uppercase text-success">
           Active
         </span>
       ) : (
-        <span className="inline-flex h-6 items-center border bg-muted px-2 text-xs uppercase text-muted-foreground">
+        <span className="inline-flex h-6 items-center border bg-muted px-2 text-[13px] uppercase text-muted-foreground">
           Inactive
         </span>
       ),
-    meta: { align: "right", width: "8rem" },
+    meta: { align: "right", width: "8rem", cellClassName: "py-3" },
   },
 ]
 
@@ -125,16 +127,17 @@ const instanceColumns: ColumnDef<ShiftInstance>[] = [
     cell: ({ getValue }) => (
       <span className="font-medium tabular-nums">{formatDate(getValue<string>())}</span>
     ),
-    meta: { width: "9rem" },
+    meta: { width: "10rem", cellClassName: "py-3" },
   },
   {
     id: "shift",
     header: "Shift",
     cell: ({ row }) => (
-      <span className="tabular-nums text-muted-foreground">
+      <span className="text-[13px] tabular-nums text-muted-foreground">
         {formatTime(row.original.startAt)} – {formatTime(row.original.endAt)}
       </span>
     ),
+    meta: { width: "14rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "status",
@@ -143,13 +146,13 @@ const instanceColumns: ColumnDef<ShiftInstance>[] = [
       const status = getValue<ShiftInstanceStatus>()
       return (
         <span
-          className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${instanceStatusClass[status]}`}
+          className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${instanceStatusClass[status]}`}
         >
           {status}
         </span>
       )
     },
-    meta: { align: "right", width: "10rem" },
+    meta: { align: "right", width: "10rem", cellClassName: "py-3" },
   },
 ]
 
@@ -158,25 +161,25 @@ const assignmentColumns: ColumnDef<ShiftAssignment>[] = [
     accessorKey: "id",
     header: "Assignment",
     cell: ({ getValue }) => (
-      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
     ),
-    meta: { width: "8rem" },
+    meta: { width: "8rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "shiftInstanceId",
     header: "Shift",
     cell: ({ getValue }) => (
-      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
     ),
-    meta: { width: "8rem" },
+    meta: { width: "8rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "employeeMembershipId",
     header: "Employee",
     cell: ({ getValue }) => (
-      <span className="font-mono text-xs text-muted-foreground">{shortId(getValue<string>())}</span>
+      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
     ),
-    meta: { width: "8rem" },
+    meta: { width: "8rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "status",
@@ -185,13 +188,13 @@ const assignmentColumns: ColumnDef<ShiftAssignment>[] = [
       const status = getValue<ShiftAssignmentStatus>()
       return (
         <span
-          className={`inline-flex h-6 items-center border px-2 text-xs font-normal uppercase ${assignmentStatusClass[status]}`}
+          className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${assignmentStatusClass[status]}`}
         >
           {status}
         </span>
       )
     },
-    meta: { align: "right", width: "10rem" },
+    meta: { align: "right", width: "10rem", cellClassName: "py-3" },
   },
   {
     accessorKey: "createdAt",
@@ -199,7 +202,7 @@ const assignmentColumns: ColumnDef<ShiftAssignment>[] = [
     cell: ({ getValue }) => (
       <span className="tabular-nums text-muted-foreground">{formatDate(getValue<string>())}</span>
     ),
-    meta: { align: "right", width: "9rem" },
+    meta: { align: "right", width: "9rem", cellClassName: "py-3" },
   },
 ]
 
@@ -234,45 +237,42 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={() => setOpen(true)}>
         New Template
       </Button>
       <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift template" className="sm:min-w-0 sm:max-w-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Name</Label>
+            <Label className="text-[13px]">Name</Label>
             <Input
               required
               placeholder="e.g. Morning Ward"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 rounded-none text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Start time</Label>
+              <Label className="text-[13px]">Start time</Label>
               <Input
                 required
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="h-9 rounded-none text-sm"
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">End time</Label>
+              <Label className="text-[13px]">End time</Label>
               <Input
                 required
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="h-9 rounded-none text-sm"
               />
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
+            <Button type="submit" size="sm" disabled={isLoading}>
               {isLoading ? "Creating…" : "Create template"}
             </Button>
           </div>
@@ -321,7 +321,7 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={() => setOpen(true)}>
         New Shift
       </Button>
       <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift" className="sm:min-w-0 sm:max-w-sm">
@@ -329,35 +329,32 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
           {templates.length > 0 && (
             <Select
               label="Template (optional)"
-              labelClassName="text-xs"
-              className="h-9 text-sm"
+              labelClassName="text-[13px]"
               value={templateId ?? "none"}
               options={templateOptions}
               onChange={(v) => setTemplateId(v === "none" ? undefined : v)}
             />
           )}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Start</Label>
+            <Label className="text-[13px]">Start</Label>
             <Input
               required
               type="datetime-local"
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
-              className="h-9 rounded-none text-sm"
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">End</Label>
+            <Label className="text-[13px]">End</Label>
             <Input
               required
               type="datetime-local"
               value={endAt}
               onChange={(e) => setEndAt(e.target.value)}
-              className="h-9 rounded-none text-sm"
             />
           </div>
           <div className="flex justify-end">
-            <Button type="submit" size="sm" className="h-8 rounded-none text-xs" disabled={isLoading}>
+            <Button type="submit" size="sm" disabled={isLoading}>
               {isLoading ? "Creating…" : "Create shift"}
             </Button>
           </div>
@@ -417,13 +414,13 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" className="h-8 rounded-none text-xs" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={() => setOpen(true)}>
         Assign Employee
       </Button>
       <Modal isOpen={open} onClose={() => setOpen(false)} heading="Assign employee to shift" className="sm:min-w-0 sm:max-w-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Shift instance</Label>
+            <Label className="text-[13px]">Shift instance</Label>
             {scheduledInstances.length > 0 ? (
               <Combobox
                 value={shiftInstanceId}
@@ -431,7 +428,6 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
                 options={shiftOptions}
                 placeholder="Select a shift"
                 searchPlaceholder="Search shifts"
-                className="h-9 text-sm"
               />
             ) : (
               <Input
@@ -439,12 +435,12 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
                 placeholder="Shift instance ID"
                 value={shiftInstanceId}
                 onChange={(e) => setShiftInstanceId(e.target.value)}
-                className="h-9 rounded-none text-sm font-mono"
+                className="font-mono"
               />
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Employee membership ID</Label>
+            <Label className="text-[13px]">Employee membership ID</Label>
             {employeeOptions.length > 0 ? (
               <Combobox
                 value={employeeMembershipId}
@@ -452,7 +448,6 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
                 options={employeeOptions}
                 placeholder="Select an employee"
                 searchPlaceholder="Search employees"
-                className="h-9 text-sm"
               />
             ) : (
               <Input
@@ -460,7 +455,7 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
                 placeholder="Employee membership ID"
                 value={employeeMembershipId}
                 onChange={(e) => setEmployeeMembershipId(e.target.value)}
-                className="h-9 rounded-none text-sm font-mono"
+                className="font-mono"
               />
             )}
           </div>
@@ -468,7 +463,6 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
             <Button
               type="submit"
               size="sm"
-              className="h-8 rounded-none text-xs"
               disabled={isLoading || !shiftInstanceId}
             >
               {isLoading ? "Assigning…" : "Assign"}
@@ -563,7 +557,7 @@ const Scheduling = () => {
               {summaryCards.map((m, idx) => (
                 <Card key={idx}>
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-xs uppercase tracking-[0.12em]">
+                    <CardDescription className="text-[13px] uppercase tracking-[0.12em]">
                       {m.label}
                     </CardDescription>
                     <CardTitle className="text-3xl font-semibold tabular-nums tracking-tighter">
@@ -571,7 +565,7 @@ const Scheduling = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground">{m.sub}</p>
+                    <p className="text-[13px] text-muted-foreground">{m.sub}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -588,7 +582,7 @@ const Scheduling = () => {
                     setPagination((p) => ({ ...p, pageIndex: 0 }))
                   }}
                   className={[
-                    "relative h-9 px-4 text-xs transition-colors",
+                    "relative h-9 px-4 text-[13px] transition-colors",
                     activeTab === tab.key
                       ? "border-b-2 border-primary font-medium text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -606,6 +600,7 @@ const Scheduling = () => {
                 title="Shift templates"
                 columns={templateColumns}
                 data={templatesPage.data}
+                tableClassName="min-w-[720px]"
                 getRowId={(t) => t.id}
                 pagination={pagination}
                 paginationInfo={templatesPage}
@@ -634,6 +629,7 @@ const Scheduling = () => {
                 title="Shift instances"
                 columns={instanceColumns}
                 data={instancesPage.data}
+                tableClassName="min-w-[680px]"
                 getRowId={(i) => i.id}
                 pagination={pagination}
                 paginationInfo={instancesPage}
@@ -662,6 +658,7 @@ const Scheduling = () => {
                 title="Shift assignments"
                 columns={assignmentColumns}
                 data={assignmentsPage.data}
+                tableClassName="min-w-[720px]"
                 getRowId={(a) => a.id}
                 pagination={pagination}
                 paginationInfo={assignmentsPage}

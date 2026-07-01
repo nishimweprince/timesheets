@@ -31,7 +31,7 @@ function RequestingScreen({
             <span className="text-[13px] font-medium tracking-tight text-foreground">
               Tuza Health
             </span>
-            <span className="text-[9px] font-normal tracking-[0.2em] uppercase text-muted-foreground/60">
+            <span className="text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
               Timesheets
             </span>
           </div>
@@ -46,7 +46,7 @@ function RequestingScreen({
             <MapPinIcon className="size-5 text-primary" />
           </div>
 
-          <p className="mb-1 text-[10px] font-normal tracking-[0.18em] uppercase text-muted-foreground/55">
+          <p className="mb-1 text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
             Permission required
           </p>
           <h1 className="mb-3 text-xl font-medium tracking-tight text-foreground">
@@ -65,7 +65,7 @@ function RequestingScreen({
             {isWaiting ? "Waiting for permission…" : "Allow location access"}
           </Button>
 
-          <p className="mt-4 text-[11px] text-muted-foreground/60">
+          <p className="mt-4 text-[13px] leading-5 text-muted-foreground/70">
             Your location is only used during the attendance process and is never shared or stored beyond your attendance record.
           </p>
         </div>
@@ -89,7 +89,7 @@ function DeniedScreen({ onRetry }: { onRetry: () => void }) {
             <span className="text-[13px] font-medium tracking-tight text-foreground">
               Tuza Health
             </span>
-            <span className="text-[9px] font-normal tracking-[0.2em] uppercase text-muted-foreground/60">
+            <span className="text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
               Timesheets
             </span>
           </div>
@@ -120,7 +120,7 @@ function DeniedScreen({ onRetry }: { onRetry: () => void }) {
             <MapPinOffIcon className="relative z-10 size-6 text-muted-foreground/45" />
           </div>
 
-          <p className="mb-1 text-[10px] font-normal tracking-[0.18em] uppercase text-muted-foreground/55">
+          <p className="mb-1 text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
             Access restricted
           </p>
           <h1 className="mb-3 text-xl font-medium tracking-tight text-foreground">
@@ -135,7 +135,7 @@ function DeniedScreen({ onRetry }: { onRetry: () => void }) {
           {/* Separator + instructions */}
           <div className="mb-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] tracking-[0.14em] uppercase text-muted-foreground/50">
+            <span className="text-[13px] tracking-[0.12em] uppercase text-muted-foreground/60">
               How to re-enable
             </span>
             <div className="h-px flex-1 bg-border" />
@@ -148,7 +148,7 @@ function DeniedScreen({ onRetry }: { onRetry: () => void }) {
               "Return here and click Try again.",
             ].map((step, i) => (
               <li key={i} className="flex items-start gap-3">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center border border-border font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center border border-border font-mono text-[13px] tabular-nums text-muted-foreground/70">
                   {i + 1}
                 </span>
                 <span className="text-sm text-muted-foreground">{step}</span>
@@ -185,7 +185,7 @@ function UnavailableScreen() {
             <span className="text-[13px] font-medium tracking-tight text-foreground">
               Tuza Health
             </span>
-            <span className="text-[9px] font-normal tracking-[0.2em] uppercase text-muted-foreground/60">
+            <span className="text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
               Timesheets
             </span>
           </div>
@@ -199,7 +199,7 @@ function UnavailableScreen() {
             <div className="absolute rounded-full border border-border" style={{ width: 52, height: 52, opacity: 0.55 }} />
             <MapPinOffIcon className="relative z-10 size-6 text-muted-foreground/45" />
           </div>
-          <p className="mb-1 text-[10px] font-normal tracking-[0.18em] uppercase text-muted-foreground/55">
+          <p className="mb-1 text-[13px] font-normal tracking-[0.14em] uppercase text-muted-foreground/60">
             Unsupported browser
           </p>
           <h1 className="mb-3 text-xl font-medium tracking-tight text-foreground">

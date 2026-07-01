@@ -9,6 +9,7 @@ import {
   EyeOffIcon,
   KeyRoundIcon,
   MailIcon,
+  MapPinIcon,
   ShieldCheckIcon,
   UserIcon,
 } from "lucide-react"
@@ -72,6 +73,14 @@ const Profile = () => {
   const membershipStatus = user?.membershipStatus
     ? user.membershipStatus.toLowerCase().replaceAll("_", " ")
     : "-"
+  const organizationName = user?.organization?.name ?? "Organization details unavailable"
+  const organizationTimezone = user?.organization?.defaultTimezone
+    ? `Default timezone: ${user.organization.defaultTimezone}`
+    : "Sign in again to refresh organization details"
+  const primaryWorkSiteName = user?.primaryWorkSite?.name ?? "Not assigned"
+  const primaryWorkSiteTimezone = user?.primaryWorkSite?.timezone
+    ? `Timezone: ${user.primaryWorkSite.timezone}`
+    : "No primary work site set"
 
   const togglePassword = (field: PasswordField) => {
     setVisiblePasswords((current) => ({
@@ -125,12 +134,12 @@ const Profile = () => {
         <SiteHeader />
 
         <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-            <div className="flex flex-col gap-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="@container/main flex flex-1 flex-col gap-5 p-4 md:gap-8 md:p-8">
+            <div className="flex flex-col gap-3 border-b border-border/60 pb-5">
+              <p className="text-[13px] uppercase tracking-[0.12em] text-muted-foreground">
                 Account
               </p>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                   Profile
                 </h1>
@@ -140,10 +149,10 @@ const Profile = () => {
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
               <Card className="border-primary/20">
-                <CardHeader>
-                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                <CardHeader className="gap-4 pb-5">
+                  <CardDescription className="text-[13px] uppercase text-primary">
                     Signed in as
                   </CardDescription>
                   <div className="flex items-center gap-4 pt-2">
@@ -158,105 +167,47 @@ const Profile = () => {
                       </CardTitle>
                       <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="inline-flex h-6 items-center border border-primary/20 bg-primary/5 px-2 text-xs font-medium text-primary">
+                        <span className="inline-flex h-6 items-center border border-primary/20 bg-primary/5 px-2 text-[12px] font-medium text-primary">
                           {roleLabel}
                         </span>
-                        <span className="inline-flex h-6 items-center border px-2 text-xs font-medium capitalize text-muted-foreground">
+                        <span className="inline-flex h-6 items-center border px-2 text-[13px] font-medium capitalize text-muted-foreground">
                           {membershipStatus}
                         </span>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <UserIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          First name
-                        </dt>
-                        <dd className="truncate font-medium text-foreground">{user?.firstName || "-"}</dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <UserIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Last name
-                        </dt>
-                        <dd className="truncate font-medium text-foreground">{user?.lastName || "-"}</dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <MailIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Email
-                        </dt>
-                        <dd className="truncate font-medium text-foreground">{user?.email ?? "-"}</dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <ShieldCheckIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Roles
-                        </dt>
-                        <dd className="truncate font-medium text-foreground">{roleLabel}</dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <Building2Icon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Organization
-                        </dt>
-                        <dd className="truncate font-mono text-xs text-foreground">
-                          {user?.organizationId ?? "-"}
-                        </dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <Building2Icon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Primary work site
-                        </dt>
-                        <dd className="truncate font-mono text-xs text-foreground">
-                          {user?.primaryWorkSiteId ?? "Not assigned"}
-                        </dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <UserIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Membership
-                        </dt>
-                        <dd className="truncate font-mono text-xs text-foreground">
-                          {user?.membershipId ?? "-"}
-                        </dd>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 border-t pt-3">
-                      <ShieldCheckIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <div>
-                        <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          Permissions
-                        </dt>
-                        <dd className="font-medium text-foreground">
-                          {user?.permissions.length ?? 0} active
-                        </dd>
-                      </div>
-                    </div>
+                <CardContent className="pb-6">
+                  <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                    <ProfileDetail icon={UserIcon} label="First name" value={user?.firstName || "-"} />
+                    <ProfileDetail icon={UserIcon} label="Last name" value={user?.lastName || "-"} />
+                    <ProfileDetail icon={MailIcon} label="Email" value={user?.email ?? "-"} />
+                    <ProfileDetail icon={ShieldCheckIcon} label="Roles" value={roleLabel} />
+                    <ProfileDetail
+                      icon={Building2Icon}
+                      label="Organization"
+                      value={organizationName}
+                      description={organizationTimezone}
+                    />
+                    <ProfileDetail
+                      icon={MapPinIcon}
+                      label="Primary work site"
+                      value={primaryWorkSiteName}
+                      description={primaryWorkSiteTimezone}
+                    />
+                    <ProfileDetail icon={UserIcon} label="Access status" value={membershipStatus} />
+                    <ProfileDetail
+                      icon={ShieldCheckIcon}
+                      label="Permissions"
+                      value={`${user?.permissions.length ?? 0} active`}
+                    />
                   </dl>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardDescription className="uppercase tracking-[0.12em] text-xs">
+                <CardHeader className="gap-3 pb-5">
+                  <CardDescription className="text-[13px] uppercase text-primary">
                     Security
                   </CardDescription>
                   <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -264,9 +215,9 @@ const Profile = () => {
                     Change password
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
-                    <div className="grid gap-4">
+                <CardContent className="pb-6">
+                  <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
+                    <div className="grid gap-5">
                       <Input
                         label="Current password"
                         type={visiblePasswords.currentPassword ? "text" : "password"}
@@ -301,8 +252,8 @@ const Profile = () => {
                       />
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <Button type="submit" className="h-10 px-4" disabled={isSubmitting}>
+                    <div className="flex flex-col gap-4 border-t border-border/70 pt-5 sm:flex-row sm:items-center">
+                      <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
                             <Spinner data-icon="inline-start" />
@@ -312,7 +263,7 @@ const Profile = () => {
                           "Update password"
                         )}
                       </Button>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
+                      <p className="text-[13px] leading-relaxed text-muted-foreground">
                         Use a password you have not used for this account before.
                       </p>
                     </div>
@@ -324,6 +275,35 @@ const Profile = () => {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function ProfileDetail({
+  icon: Icon,
+  label,
+  value,
+  description,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: React.ReactNode
+  description?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 border-t border-border/70 pt-4">
+      <Icon className="mt-1 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 space-y-1">
+        <dt className="text-[13px] uppercase text-primary">
+          {label}
+        </dt>
+        <dd className="truncate font-normal text-[13px] text-foreground">{value}</dd>
+        {description ? (
+          <dd className="truncate text-[12px] leading-5 text-muted-foreground">
+            {description}
+          </dd>
+        ) : null}
+      </div>
+    </div>
   )
 }
 

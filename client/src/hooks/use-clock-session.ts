@@ -12,7 +12,7 @@ import { WorkSessionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
 import { setLocation } from "@/states/features/location.slice"
 
-export function useClockSession() {
+export function useClockSession(enabled = true) {
   const dispatch = useAppDispatch()
 
   const currentSession = useAppSelector((s) => s.attendance.currentSession)
@@ -22,9 +22,11 @@ export function useClockSession() {
   const effectivePolicy = useAppSelector((s) => s.attendance.effectivePolicy)
 
   React.useEffect(() => {
+    if (!enabled) return
+
     dispatch(fetchCurrentSession())
     dispatch(fetchEffectivePolicy())
-  }, [dispatch])
+  }, [dispatch, enabled])
 
   const isOnShift = currentSession?.status === WorkSessionStatus.OPEN
 
@@ -64,6 +66,8 @@ export function useClockSession() {
     })
 
   const handleClockIn = async (cameraEvidenceId?: string) => {
+    if (!enabled) return
+
     try {
       const location = await getLocation()
       await dispatch(
@@ -83,6 +87,8 @@ export function useClockSession() {
   }
 
   const handleClockOut = async (cameraEvidenceId?: string) => {
+    if (!enabled) return
+
     try {
       const location = await getLocation()
       await dispatch(

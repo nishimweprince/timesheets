@@ -88,7 +88,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
               data-slot="select-trigger"
               aria-invalid={!!error}
               className={cn(
-                'flex h-10 w-full items-center justify-between rounded-none border border-field-border bg-field px-3 text-left text-sm text-foreground outline-none transition-colors data-[placeholder]:text-placeholder focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20',
+                'flex h-11 w-full items-center justify-between rounded-none border border-field-border bg-field px-4 text-left text-sm text-foreground outline-none transition-colors data-[placeholder]:text-placeholder focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20',
                 className,
               )}
             >
@@ -114,7 +114,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Search"
-                      className="h-8 w-full rounded-none border border-field-border bg-field px-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                      className="h-11 w-full rounded-none border border-field-border bg-field px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
                 ) : null}
@@ -126,7 +126,7 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
                         data-slot="select-item"
                         value={option.value}
                         disabled={option.disabled}
-                        className="relative flex h-8 cursor-pointer select-none items-center rounded-none px-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-muted data-[state=checked]:text-primary data-[disabled]:opacity-50"
+                        className="relative flex h-10 cursor-pointer select-none items-center rounded-none px-4 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-muted data-[state=checked]:text-primary data-[disabled]:opacity-50"
                       >
                         <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                         <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex items-center">

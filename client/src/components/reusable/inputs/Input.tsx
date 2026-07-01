@@ -177,6 +177,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   'flex h-10 w-full items-center justify-center rounded-none border border-field-border bg-field px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 disabled:opacity-60',
+                  'h-11 px-4',
                   className,
                 )}
               >
@@ -252,7 +253,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         ) : (
           <InputGroup
             className={cn(
-              'h-10 border-field-border bg-field',
+              'h-11 border-field-border bg-field',
               'has-[[data-slot=input-group-control]:focus-visible]:border-primary',
               'has-[[data-slot=input-group-control]:focus-visible]:ring-primary/30',
               readOnly && 'bg-muted',
@@ -262,7 +263,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               <InputGroupAddon align="inline-start" className="text-muted-foreground">
                 {PrefixIcon ? <PrefixIcon className="size-4" /> : null}
                 {prefixText ? (
-                  <InputGroupText className="text-sm">{prefixText}</InputGroupText>
+                  <InputGroupText>{prefixText}</InputGroupText>
                 ) : null}
               </InputGroupAddon>
             ) : null}

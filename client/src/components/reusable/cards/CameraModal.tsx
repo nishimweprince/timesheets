@@ -15,6 +15,18 @@ interface CameraModalProps {
 type Phase = 'streaming' | 'preview' | 'uploading'
 
 export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a photo' }: CameraModalProps) {
+  if (!isOpen) return null
+
+  return (
+    <CameraModalContent
+      onClose={onClose}
+      onCapture={onCapture}
+      heading={heading}
+    />
+  )
+}
+
+function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalProps, 'isOpen'>) {
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const streamRef = React.useRef<MediaStream | null>(null)
@@ -43,28 +55,38 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
   }, [])
 
   React.useEffect(() => {
-    if (isOpen) {
-      setPhase('streaming')
-      setPreviewUrl(null)
-      setCapturedBlob(null)
-      setError(null)
-      startStream()
-    } else {
+    let cancelled = false
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+        setPhase('streaming')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Camera access denied. Please allow camera permission and try again.')
+        }
+      })
+
+    return () => {
+      cancelled = true
       stopStream()
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-      setCapturedBlob(null)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  }, [stopStream])
 
   React.useEffect(() => {
-    return () => {
-      stopStream()
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!previewUrl) return
+
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   const handleCapture = () => {
     const video = videoRef.current
@@ -113,7 +135,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen
       onClose={handleClose}
       heading={heading}
       description="Position yourself in frame and take a photo to continue."
@@ -121,7 +143,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="text-xs text-destructive">{error}</p>
+          <p className="text-[13px] leading-5 text-destructive">{error}</p>
         )}
 
         <div className="relative overflow-hidden rounded-none bg-muted aspect-video w-full">
@@ -142,7 +164,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
             />
           )}
           {phase === 'uploading' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/60 text-xs text-muted-foreground">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60 text-[13px] text-muted-foreground">
               Uploading…
             </div>
           )}
@@ -155,7 +177,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
             type="button"
             variant="outline"
             size="sm"
-            className="h-9 rounded-none text-xs"
+            className="h-9 rounded-none text-[13px]"
             onClick={handleClose}
             disabled={phase === 'uploading'}
           >
@@ -168,7 +190,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 rounded-none text-xs"
+                className="h-9 rounded-none text-[13px]"
                 onClick={handleRetake}
               >
                 <RefreshCwIcon className="size-3.5" />
@@ -180,7 +202,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
               <Button
                 type="button"
                 size="sm"
-                className="h-9 rounded-none text-xs"
+                className="h-9 rounded-none text-[13px]"
                 onClick={handleCapture}
                 disabled={!!error}
               >
@@ -193,7 +215,7 @@ export function CameraModal({ isOpen, onClose, onCapture, heading = 'Take a phot
               <Button
                 type="button"
                 size="sm"
-                className="h-9 rounded-none text-xs"
+                className="h-9 rounded-none text-[13px]"
                 onClick={handleConfirm}
                 disabled={phase === 'uploading'}
               >

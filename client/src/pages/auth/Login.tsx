@@ -148,7 +148,7 @@ const Login = () => {
 
           <Button
             type="submit"
-            className="h-10 w-full rounded-none"
+            className="w-full"
             disabled={isSubmitting}
           >
             {isSubmitting ? (

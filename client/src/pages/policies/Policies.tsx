@@ -384,7 +384,7 @@ function PoliciesPage() {
             )}
 
             {activeTab === "policies" && assignments.length > 0 ? (
-              <Card className="rounded-none border-border/70 shadow-none">
+              <Card className="rounded-xs border-border/70 shadow-none">
                 <CardHeader className="pb-2">
                   <CardDescription className="text-sm text-muted-foreground">Assignments</CardDescription>
                   <CardTitle className="text-[13px] font-semibold tracking-tight">Active policy coverage</CardTitle>
@@ -432,7 +432,7 @@ function SummaryCard({
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <Card className="rounded-none border-border/70 shadow-none">
+    <Card className="rounded-xs border-border/70 shadow-none">
       <CardHeader className="pb-2">
         <CardDescription className="text-sm text-muted-foreground">{label}</CardDescription>
         <CardTitle className="flex items-center gap-2 text-3xl font-semibold tracking-tighter tabular-nums">

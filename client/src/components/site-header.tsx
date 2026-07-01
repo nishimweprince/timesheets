@@ -49,7 +49,7 @@ export function SiteHeader() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-10 cursor-pointer gap-2.5 rounded-none border border-transparent pl-1.5 pr-2.5 hover:border-border hover:bg-muted/70 aria-expanded:border-border aria-expanded:bg-muted"
+                className="h-10 cursor-pointer gap-2.5 rounded-xs border border-transparent pl-1.5 pr-2.5 hover:border-border hover:bg-muted/70 aria-expanded:border-border aria-expanded:bg-muted"
               >
                 <Avatar className="size-8">
                   <AvatarFallback className="bg-primary text-[13px] font-semibold text-primary-foreground">

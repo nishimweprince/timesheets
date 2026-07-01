@@ -86,7 +86,7 @@ const DatePicker = ({
           variant="outline"
           disabled={disabled}
           className={cn(
-            'h-11 w-full justify-start rounded-none border-field-border bg-field px-4 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30',
+            'h-11 w-full justify-start rounded-xs border-field-border bg-field px-4 text-left text-sm font-normal hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30',
             !selectedDate && 'text-placeholder',
           )}
         >
@@ -99,7 +99,7 @@ const DatePicker = ({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={4}
-          className="z-50 w-72 rounded-none border border-field-border bg-popover p-3 text-popover-foreground shadow-sm"
+          className="z-50 w-72 rounded-xs border border-field-border bg-popover p-3 text-popover-foreground shadow-sm"
         >
           <div className="mb-3 flex items-center gap-2">
             <Button
@@ -163,7 +163,7 @@ const DatePicker = ({
                   disabled={disabledDay}
                   onClick={() => selectDate(date)}
                   className={cn(
-                    'h-9 rounded-none text-sm outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
+                    'h-9 rounded-xs text-sm outline-none transition-colors hover:bg-muted focus:bg-muted focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-30',
                     !currentMonth && 'text-muted-foreground/50',
                     selected && 'bg-primary text-primary-foreground hover:bg-primary',
                   )}

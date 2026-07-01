@@ -58,7 +58,7 @@ function RequestingScreen({
 
           <Button
             size="lg"
-            className="h-11 w-full rounded-none text-sm font-medium"
+            className="h-11 w-full rounded-xs text-sm font-medium"
             onClick={onEnable}
             disabled={isWaiting}
           >
@@ -159,7 +159,7 @@ function DeniedScreen({ onRetry }: { onRetry: () => void }) {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 w-full rounded-none text-sm font-medium"
+            className="h-11 w-full rounded-xs text-sm font-medium"
             onClick={onRetry}
           >
             <RefreshCwIcon className="mr-2 size-3.5" />

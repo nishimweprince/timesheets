@@ -146,7 +146,7 @@ function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalPro
           <p className="text-[13px] leading-5 text-destructive">{error}</p>
         )}
 
-        <div className="relative overflow-hidden rounded-none bg-muted aspect-video w-full">
+        <div className="relative overflow-hidden rounded-xs bg-muted aspect-video w-full">
           {phase === 'streaming' && (
             <video
               ref={videoRef}
@@ -177,7 +177,7 @@ function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalPro
             type="button"
             variant="outline"
             size="sm"
-            className="h-9 rounded-none text-[13px]"
+            className="h-9 rounded-xs text-[13px]"
             onClick={handleClose}
             disabled={phase === 'uploading'}
           >
@@ -190,7 +190,7 @@ function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalPro
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 rounded-none text-[13px]"
+                className="h-9 rounded-xs text-[13px]"
                 onClick={handleRetake}
               >
                 <RefreshCwIcon className="size-3.5" />
@@ -202,7 +202,7 @@ function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalPro
               <Button
                 type="button"
                 size="sm"
-                className="h-9 rounded-none text-[13px]"
+                className="h-9 rounded-xs text-[13px]"
                 onClick={handleCapture}
                 disabled={!!error}
               >
@@ -215,7 +215,7 @@ function CameraModalContent({ onClose, onCapture, heading }: Omit<CameraModalPro
               <Button
                 type="button"
                 size="sm"
-                className="h-9 rounded-none text-[13px]"
+                className="h-9 rounded-xs text-[13px]"
                 onClick={handleConfirm}
                 disabled={phase === 'uploading'}
               >

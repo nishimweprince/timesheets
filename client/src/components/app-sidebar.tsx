@@ -89,7 +89,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             isActive={isActive}
             tooltip={item.title}
             className={cn(
-              "relative h-11 gap-3 rounded-none px-4 text-[13px] font-medium text-sidebar-foreground/76",
+              "relative h-11 gap-3 rounded-xs px-4 text-[13px] font-medium text-sidebar-foreground/76",
               "transition-[background-color,color,box-shadow] duration-150",
               "hover:bg-sidebar-accent/55 hover:text-sidebar-foreground",
               "focus-visible:ring-1 focus-visible:ring-sidebar-ring/60",

@@ -103,7 +103,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             onCheckedChange={(nextChecked) =>
               onCheckedChange?.(nextChecked === true)
             }
-            className="rounded-none border-field-border"
+            className="rounded-xs border-field-border"
           />
           {label ? (
             <span className={cn('text-sm font-medium text-foreground', labelClassName)}>
@@ -131,7 +131,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled || readOnly}
             aria-invalid={!!error}
             onChange={onChange}
-            className="size-4 rounded-none border border-field-border accent-primary outline-none focus:ring-1 focus:ring-primary/30"
+            className="size-4 rounded-xs border border-field-border accent-primary outline-none focus:ring-1 focus:ring-primary/30"
             {...props}
           />
           {label ? (
@@ -176,7 +176,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 disabled={disabled || readOnly}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  'flex h-10 w-full items-center justify-center rounded-none border border-field-border bg-field px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 disabled:opacity-60',
+                  'flex h-10 w-full items-center justify-center rounded-xs border border-field-border bg-field px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-field-hover focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 disabled:opacity-60',
                   'h-11 px-4',
                   className,
                 )}

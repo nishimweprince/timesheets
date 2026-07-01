@@ -65,7 +65,7 @@ export const SkeletonLoader = ({ type, width, height, className }: SkeletonLoade
 
   return (
     <figure
-      className={cn('animate-pulse rounded-none bg-field-hover', className)}
+      className={cn('animate-pulse rounded-xs bg-field-hover', className)}
       style={dimensions}
     />
   )

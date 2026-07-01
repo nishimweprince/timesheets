@@ -368,7 +368,7 @@ function TeamPage() {
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Search team"
-                      className="h-11 w-64 rounded-none pl-9 text-sm"
+                      className="h-11 w-64 rounded-xs pl-9 text-sm"
                     />
                   </div>
                 ) : null}

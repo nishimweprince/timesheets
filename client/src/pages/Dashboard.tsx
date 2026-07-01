@@ -230,7 +230,7 @@ const Dashboard = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
                       size="lg"
-                      className="h-11 rounded-none px-8 text-sm font-medium"
+                      className="h-11 rounded-xs px-8 text-sm font-medium"
                       onClick={handleClockButton}
                       variant={isOnShift ? "destructive" : "default"}
                       disabled={actionLoading}

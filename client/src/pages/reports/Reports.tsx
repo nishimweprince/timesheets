@@ -490,7 +490,7 @@ const Reports = () => {
               isOpen={reportModalOpen}
               onClose={() => setReportModalOpen(false)}
               heading="Generate report"
-              className="!min-w-0 w-[min(92vw,34rem)] rounded-none"
+              className="!min-w-0 w-[min(92vw,34rem)] rounded-xs"
               headingClassName="text-base normal-case tracking-tight text-foreground"
             >
               <div className="flex flex-col gap-4">
@@ -522,7 +522,7 @@ const Reports = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-none"
+                    className="rounded-xs"
                     onClick={() => setReportModalOpen(false)}
                     disabled={isGeneratingReport}
                   >
@@ -530,7 +530,7 @@ const Reports = () => {
                   </Button>
                   <Button
                     type="button"
-                    className="rounded-none"
+                    className="rounded-xs"
                     onClick={generateReport}
                     disabled={isGeneratingReport}
                   >
@@ -599,7 +599,7 @@ function SummaryCard({
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <Card className="rounded-none border-border/70 shadow-none">
+    <Card className="rounded-xs border-border/70 shadow-none">
       <CardHeader className="pb-2">
         <CardDescription className="text-sm text-muted-foreground">{label}</CardDescription>
         <CardTitle className="flex items-center gap-2 text-3xl font-semibold tracking-tighter tabular-nums">

@@ -306,7 +306,7 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
                     <p className="text-[13px] leading-5 text-muted-foreground">
-                      Create shifts, manage templates and assign employees.
+                      Create shifts and assign employees.
                     </p>
                     <Button
                       variant="outline"

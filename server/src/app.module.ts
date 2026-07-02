@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { dataSourceOptions } from './common/database/typeorm.config';
+import { typeOrmAsyncOptions } from './common/database/typeorm.config';
 import { validateEnv } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { CorrelationModule } from './common/correlation/correlation.module';
@@ -27,10 +28,8 @@ import { ResponseMessageInterceptor } from './common/interceptors/response-messa
       isGlobal: true,
       validate: validateEnv
     }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: dataSourceOptions
-    }),
+    TypeOrmModule.forRootAsync(typeOrmAsyncOptions),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     CorrelationModule,
     AuditModule,

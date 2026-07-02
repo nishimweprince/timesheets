@@ -1,7 +1,14 @@
 import { apiRequest } from './client'
 import { toQueryString, type PaginatedResult, type PaginationParams } from './pagination'
 
-export interface ShiftTemplate {
+export const ShiftPatternFreq = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+} as const
+
+export type ShiftPatternFreq = typeof ShiftPatternFreq[keyof typeof ShiftPatternFreq]
+
+export interface ShiftPattern {
   id: string
   organizationId: string
   name: string
@@ -9,6 +16,11 @@ export interface ShiftTemplate {
   startTime: string
   endTime: string
   workSiteId: string | null
+  rrule: string | null
+  freq: ShiftPatternFreq | null
+  daysOfWeek: number[]
+  effectiveFrom: string
+  effectiveUntil: string | null
   active: boolean
   createdAt: string
 }
@@ -16,6 +28,8 @@ export interface ShiftTemplate {
 export const ShiftInstanceStatus = {
   SCHEDULED: 'SCHEDULED',
   CANCELLED: 'CANCELLED',
+  MODIFIED: 'MODIFIED',
+  COMPLETED: 'COMPLETED',
 } as const
 
 export type ShiftInstanceStatus = typeof ShiftInstanceStatus[keyof typeof ShiftInstanceStatus]
@@ -23,8 +37,9 @@ export type ShiftInstanceStatus = typeof ShiftInstanceStatus[keyof typeof ShiftI
 export interface ShiftInstance {
   id: string
   organizationId: string
-  shiftTemplateId: string | null
+  patternId: string | null
   workSiteId: string | null
+  shiftDate: string
   startAt: string
   endAt: string
   status: ShiftInstanceStatus
@@ -48,19 +63,42 @@ export interface ShiftAssignment {
   createdAt: string
 }
 
-export interface CreateShiftTemplatePayload {
+export interface CreateShiftPatternPayload {
   name: string
   startTime: string
   endTime: string
+  daysOfWeek: number[]
+  effectiveFrom: string
+  effectiveUntil?: string
+  freq?: ShiftPatternFreq
   timezone?: string
   workSiteId?: string
 }
 
+export interface UpdateShiftPatternPayload {
+  name?: string
+  startTime?: string
+  endTime?: string
+  daysOfWeek?: number[]
+  effectiveFrom?: string
+  effectiveUntil?: string
+  freq?: ShiftPatternFreq
+  timezone?: string
+  workSiteId?: string
+  active?: boolean
+}
+
 export interface CreateShiftInstancePayload {
-  shiftTemplateId?: string
+  patternId?: string
   workSiteId?: string
   startAt: string
   endAt: string
+}
+
+export interface OverrideShiftInstancePayload {
+  startAt?: string
+  endAt?: string
+  status?: ShiftInstanceStatus
 }
 
 export interface CreateShiftAssignmentPayload {
@@ -68,21 +106,43 @@ export interface CreateShiftAssignmentPayload {
   shiftInstanceId: string
 }
 
+export interface ShiftInstanceQueryParams extends PaginationParams {
+  from?: string
+  to?: string
+  patternId?: string
+}
+
 export const schedulingApi = {
-  templates(params?: PaginationParams): Promise<PaginatedResult<ShiftTemplate>> {
-    return apiRequest<PaginatedResult<ShiftTemplate>>(`/shift-templates${toQueryString({ ...params })}`)
+  patterns(params?: PaginationParams): Promise<PaginatedResult<ShiftPattern>> {
+    return apiRequest<PaginatedResult<ShiftPattern>>(`/shift-patterns${toQueryString({ ...params })}`)
   },
 
-  createTemplate(body: CreateShiftTemplatePayload): Promise<ShiftTemplate> {
-    return apiRequest<ShiftTemplate>('/shift-templates', { method: 'POST', body })
+  createPattern(body: CreateShiftPatternPayload): Promise<ShiftPattern> {
+    return apiRequest<ShiftPattern>('/shift-patterns', { method: 'POST', body })
   },
 
-  instances(params?: PaginationParams): Promise<PaginatedResult<ShiftInstance>> {
+  updatePattern(id: string, body: UpdateShiftPatternPayload): Promise<ShiftPattern> {
+    return apiRequest<ShiftPattern>(`/shift-patterns/${id}`, { method: 'PATCH', body })
+  },
+
+  archivePattern(id: string): Promise<ShiftPattern> {
+    return apiRequest<ShiftPattern>(`/shift-patterns/${id}`, { method: 'DELETE' })
+  },
+
+  instances(params?: ShiftInstanceQueryParams): Promise<PaginatedResult<ShiftInstance>> {
     return apiRequest<PaginatedResult<ShiftInstance>>(`/shift-instances${toQueryString({ ...params })}`)
   },
 
   createInstance(body: CreateShiftInstancePayload): Promise<ShiftInstance> {
     return apiRequest<ShiftInstance>('/shift-instances', { method: 'POST', body })
+  },
+
+  overrideInstance(id: string, body: OverrideShiftInstancePayload): Promise<ShiftInstance> {
+    return apiRequest<ShiftInstance>(`/shift-instances/${id}`, { method: 'PATCH', body })
+  },
+
+  cancelInstance(id: string): Promise<ShiftInstance> {
+    return apiRequest<ShiftInstance>(`/shift-instances/${id}/cancel`, { method: 'POST' })
   },
 
   assignments(params?: PaginationParams): Promise<PaginatedResult<ShiftAssignment>> {

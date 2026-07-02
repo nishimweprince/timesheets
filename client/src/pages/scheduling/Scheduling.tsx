@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
+import { MoreHorizontal } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
@@ -14,31 +15,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Modal from "@/components/reusable/cards/Modal"
 import Combobox from "@/components/reusable/inputs/Combobox"
-import Select from "@/components/reusable/inputs/Select"
+import DatePicker from "@/components/reusable/inputs/DatePicker"
 import { DataTable } from "@/components/reusable/tables"
+import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
+  cancelInstance,
   createAssignment,
-  createInstance,
-  createTemplate,
+  createPattern,
   fetchAssignments,
   fetchAssignmentsPage,
   fetchInstances,
   fetchInstancesPage,
-  fetchTemplates,
-  fetchTemplatesPage,
+  fetchPatterns,
+  overrideInstance,
 } from "@/states/features/scheduling.slice"
 import {
   ShiftAssignmentStatus,
   ShiftInstanceStatus,
   type ShiftAssignment,
   type ShiftInstance,
-  type ShiftTemplate,
+  type ShiftPattern,
 } from "@/lib/api/scheduling.api"
 import { showApiErrorToast } from "@/lib/api/errors"
 
@@ -48,12 +56,31 @@ function shortId(id: string) {
   return id.slice(0, 8)
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+function formatDateISO(iso: string) {
+  // "YYYY-MM-DD" -> render as local calendar date without timezone shift.
+  const [y, m, d] = iso.split("-").map(Number)
+  if (!y || !m || !d) return iso
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+}
+
+function toIsoDate(date: Date | undefined): string {
+  if (!date) return ""
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
 }
 
 function employeeName(employee: { firstName: string; lastName: string; email: string }) {
@@ -61,11 +88,45 @@ function employeeName(employee: { firstName: string; lastName: string; email: st
   return name || employee.email
 }
 
+// --- constants ---
+
+const WEEKDAYS: { iso: number; label: string; short: string }[] = [
+  { iso: 1, label: "Monday", short: "Mon" },
+  { iso: 2, label: "Tuesday", short: "Tue" },
+  { iso: 3, label: "Wednesday", short: "Wed" },
+  { iso: 4, label: "Thursday", short: "Thu" },
+  { iso: 5, label: "Friday", short: "Fri" },
+  { iso: 6, label: "Saturday", short: "Sat" },
+  { iso: 7, label: "Sunday", short: "Sun" },
+]
+
+const WEEKDAY_PRESETS: { key: string; label: string; days: number[] }[] = [
+  { key: "weekdays", label: "Weekdays", days: [1, 2, 3, 4, 5] },
+  { key: "weekends", label: "Weekends", days: [6, 7] },
+  { key: "every_day", label: "Every day", days: [1, 2, 3, 4, 5, 6, 7] },
+]
+
+function daysLabel(days: number[]): string {
+  if (!days.length) return "Does not repeat"
+  const sorted = [...days].sort((a, b) => a - b)
+  for (const preset of WEEKDAY_PRESETS) {
+    if (
+      preset.days.length === sorted.length &&
+      preset.days.every((d, i) => d === sorted[i])
+    ) {
+      return preset.label
+    }
+  }
+  return sorted.map((d) => WEEKDAYS[d - 1].short).join(", ")
+}
+
 // --- badge styles ---
 
 const instanceStatusClass: Record<ShiftInstanceStatus, string> = {
   [ShiftInstanceStatus.SCHEDULED]: "border-success/20 bg-success/10 text-success",
   [ShiftInstanceStatus.CANCELLED]: "border-border bg-muted text-muted-foreground",
+  [ShiftInstanceStatus.MODIFIED]: "border-warning/25 bg-warning/10 text-warning",
+  [ShiftInstanceStatus.COMPLETED]: "border-primary/20 bg-primary/10 text-primary",
 }
 
 const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
@@ -74,161 +135,76 @@ const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
   [ShiftAssignmentStatus.REASSIGNED]: "border-warning/25 bg-warning/10 text-warning",
 }
 
-// --- column definitions ---
-
-const templateColumns: ColumnDef<ShiftTemplate>[] = [
-  {
-    accessorKey: "name",
-    header: "Name",
-    cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
-    meta: { width: "16rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "startTime",
-    header: "Start",
-    cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
-    meta: { width: "8rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "endTime",
-    header: "End",
-    cell: ({ getValue }) => <span className="tabular-nums">{getValue<string>()}</span>,
-    meta: { width: "8rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "timezone",
-    header: "Timezone",
-    cell: ({ getValue }) => (
-      <span className="text-[13px] text-muted-foreground">{getValue<string>()}</span>
-    ),
-    meta: { width: "16rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "active",
-    header: "Status",
-    cell: ({ getValue }) =>
-      getValue<boolean>() ? (
-        <span className="inline-flex h-6 items-center border border-success/20 bg-success/10 px-2 text-[13px] uppercase text-success">
-          Active
-        </span>
-      ) : (
-        <span className="inline-flex h-6 items-center border bg-muted px-2 text-[13px] uppercase text-muted-foreground">
-          Inactive
-        </span>
-      ),
-    meta: { align: "right", width: "8rem", cellClassName: "py-3" },
-  },
-]
-
-const instanceColumns: ColumnDef<ShiftInstance>[] = [
-  {
-    accessorKey: "startAt",
-    header: "Date",
-    cell: ({ getValue }) => (
-      <span className="font-medium tabular-nums">{formatDate(getValue<string>())}</span>
-    ),
-    meta: { width: "10rem", cellClassName: "py-3" },
-  },
-  {
-    id: "shift",
-    header: "Shift",
-    cell: ({ row }) => (
-      <span className="text-[13px] tabular-nums text-muted-foreground">
-        {formatTime(row.original.startAt)} – {formatTime(row.original.endAt)}
-      </span>
-    ),
-    meta: { width: "14rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ getValue }) => {
-      const status = getValue<ShiftInstanceStatus>()
-      return (
-        <span
-          className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${instanceStatusClass[status]}`}
-        >
-          {status}
-        </span>
-      )
-    },
-    meta: { align: "right", width: "10rem", cellClassName: "py-3" },
-  },
-]
-
-const assignmentColumns: ColumnDef<ShiftAssignment>[] = [
-  {
-    accessorKey: "id",
-    header: "Assignment",
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
-    ),
-    meta: { width: "8rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "shiftInstanceId",
-    header: "Shift",
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
-    ),
-    meta: { width: "8rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "employeeMembershipId",
-    header: "Employee",
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
-    ),
-    meta: { width: "8rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ getValue }) => {
-      const status = getValue<ShiftAssignmentStatus>()
-      return (
-        <span
-          className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${assignmentStatusClass[status]}`}
-        >
-          {status}
-        </span>
-      )
-    },
-    meta: { align: "right", width: "10rem", cellClassName: "py-3" },
-  },
-  {
-    accessorKey: "createdAt",
-    header: "Created",
-    cell: ({ getValue }) => (
-      <span className="tabular-nums text-muted-foreground">{formatDate(getValue<string>())}</span>
-    ),
-    meta: { align: "right", width: "9rem", cellClassName: "py-3" },
-  },
-]
-
 // --- Tab types ---
 
-type Tab = "templates" | "shifts" | "assignments"
+type Tab = "shifts" | "assignments"
 
-// --- Dialogs ---
+// --- Create shift dialog ---
 
-function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
+type Recurrence = "none" | "weekly"
+
+function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
   const dispatch = useAppDispatch()
-  const isLoading = useAppSelector((s) => s.scheduling.status.createTemplate === "loading")
+  const isLoading = useAppSelector((s) => s.scheduling.status.createPattern === "loading")
 
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState("")
-  const [startTime, setStartTime] = React.useState("")
-  const [endTime, setEndTime] = React.useState("")
+  const [startTime, setStartTime] = React.useState("09:00")
+  const [endTime, setEndTime] = React.useState("17:00")
+  const [timezone, setTimezone] = React.useState("")
+  const [recurrence, setRecurrence] = React.useState<Recurrence>("weekly")
+  const [daysOfWeek, setDaysOfWeek] = React.useState<number[]>([1, 2, 3, 4, 5])
+  const [effectiveFrom, setEffectiveFrom] = React.useState<Date | undefined>(new Date())
+  const [effectiveUntil, setEffectiveUntil] = React.useState<Date | undefined>(undefined)
+
+  const reset = () => {
+    setName("")
+    setStartTime("09:00")
+    setEndTime("17:00")
+    setTimezone("")
+    setRecurrence("weekly")
+    setDaysOfWeek([1, 2, 3, 4, 5])
+    setEffectiveFrom(new Date())
+    setEffectiveUntil(undefined)
+  }
+
+  const toggleDay = (iso: number) => {
+    setDaysOfWeek((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort((a, b) => a - b),
+    )
+  }
+
+  const applyPreset = (days: number[]) => {
+    setDaysOfWeek([...days])
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!effectiveFrom) {
+      showApiErrorToast(new Error("Please pick a start date"))
+      return
+    }
+    const from = toIsoDate(effectiveFrom)
+    const isRecurring = recurrence === "weekly" && daysOfWeek.length > 0
+    const until = isRecurring
+      ? effectiveUntil
+        ? toIsoDate(effectiveUntil)
+        : undefined
+      : from
     try {
-      await dispatch(createTemplate({ name, startTime, endTime })).unwrap()
+      await dispatch(
+        createPattern({
+          name,
+          startTime,
+          endTime,
+          daysOfWeek: isRecurring ? daysOfWeek : [],
+          effectiveFrom: from,
+          effectiveUntil: until,
+          ...(timezone.trim() ? { timezone: timezone.trim() } : {}),
+        }),
+      ).unwrap()
       setOpen(false)
-      setName("")
-      setStartTime("")
-      setEndTime("")
+      reset()
       onCreated()
     } catch (err) {
       showApiErrorToast(err)
@@ -238,9 +214,14 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        New Template
+        New Shift
       </Button>
-      <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift template" className="sm:min-w-0 sm:max-w-sm">
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        heading="New shift"
+        className="sm:min-w-0 sm:max-w-md"
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-[13px]">Name</Label>
@@ -251,6 +232,7 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-[13px]">Start time</Label>
@@ -271,90 +253,108 @@ function NewTemplateDialog({ onCreated }: { onCreated: () => void }) {
               />
             </div>
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
-              {isLoading ? "Creating…" : "Create template"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </>
-  )
-}
 
-function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
-  const dispatch = useAppDispatch()
-  const templates = useAppSelector((s) => s.scheduling.templates)
-  const isLoading = useAppSelector((s) => s.scheduling.status.createInstance === "loading")
-
-  const [open, setOpen] = React.useState(false)
-  const [templateId, setTemplateId] = React.useState<string | undefined>(undefined)
-  const [startAt, setStartAt] = React.useState("")
-  const [endAt, setEndAt] = React.useState("")
-  const templateOptions = React.useMemo(
-    () => [
-      { label: "No template", value: "none" },
-      ...templates.map((template) => ({ label: template.name, value: template.id })),
-    ],
-    [templates],
-  )
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await dispatch(
-        createInstance({
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
-          ...(templateId ? { shiftTemplateId: templateId } : {}),
-        })
-      ).unwrap()
-      setOpen(false)
-      setTemplateId(undefined)
-      setStartAt("")
-      setEndAt("")
-      onCreated()
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
-  return (
-    <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        New Shift
-      </Button>
-      <Modal isOpen={open} onClose={() => setOpen(false)} heading="New shift" className="sm:min-w-0 sm:max-w-sm">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {templates.length > 0 && (
-            <Select
-              label="Template (optional)"
-              labelClassName="text-[13px]"
-              value={templateId ?? "none"}
-              options={templateOptions}
-              onChange={(v) => setTemplateId(v === "none" ? undefined : v)}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[13px]">Timezone (optional)</Label>
+            <Input
+              placeholder="e.g. America/Chicago"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className="text-[13px]">Repeat</Label>
+            <div className="flex gap-2">
+              {(["none", "weekly"] as Recurrence[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setRecurrence(option)}
+                  className={cn(
+                    "flex-1 h-9 border px-3 text-[13px] transition-colors",
+                    recurrence === option
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {option === "none" ? "Does not repeat" : "Repeat weekly"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {recurrence === "weekly" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label className="text-[13px]">Days of week</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAYS.map((day) => {
+                    const active = daysOfWeek.includes(day.iso)
+                    return (
+                      <button
+                        key={day.iso}
+                        type="button"
+                        onClick={() => toggleDay(day.iso)}
+                        className={cn(
+                          "h-9 min-w-11 border px-2 text-[13px] transition-colors",
+                          active
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-transparent text-muted-foreground hover:text-foreground",
+                        )}
+                        aria-pressed={active}
+                        aria-label={day.label}
+                      >
+                        {day.short}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAY_PRESETS.map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      onClick={() => applyPreset(preset.days)}
+                      className="h-7 border border-border bg-transparent px-2 text-[12px] text-muted-foreground hover:text-foreground"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Start</Label>
-            <Input
-              required
-              type="datetime-local"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-            />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px]">
+                {recurrence === "none" ? "Date" : "Starts on"}
+              </Label>
+              <DatePicker value={effectiveFrom} onChange={setEffectiveFrom} />
+            </div>
+            {recurrence === "weekly" && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[13px]">Ends on (optional)</Label>
+                <DatePicker
+                  value={effectiveUntil}
+                  onChange={setEffectiveUntil}
+                  fromDate={effectiveFrom}
+                />
+              </div>
+            )}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">End</Label>
-            <Input
-              required
-              type="datetime-local"
-              value={endAt}
-              onChange={(e) => setEndAt(e.target.value)}
-            />
-          </div>
+
           <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                isLoading ||
+                !name ||
+                (recurrence === "weekly" && daysOfWeek.length === 0)
+              }
+            >
               {isLoading ? "Creating…" : "Create shift"}
             </Button>
           </div>
@@ -363,6 +363,97 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
     </>
   )
 }
+
+// --- Override instance dialog ---
+
+function OverrideInstanceDialog({
+  instance,
+  open,
+  onOpenChange,
+  onDone,
+}: {
+  instance: ShiftInstance | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDone: () => void
+}) {
+  const dispatch = useAppDispatch()
+  const isLoading = useAppSelector((s) => s.scheduling.status.overrideInstance === "loading")
+  const [startAt, setStartAt] = React.useState("")
+  const [endAt, setEndAt] = React.useState("")
+
+  React.useEffect(() => {
+    if (instance) {
+      setStartAt(toLocalDatetime(instance.startAt))
+      setEndAt(toLocalDatetime(instance.endAt))
+    }
+  }, [instance])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!instance) return
+    try {
+      await dispatch(
+        overrideInstance({
+          id: instance.id,
+          payload: {
+            startAt: new Date(startAt).toISOString(),
+            endAt: new Date(endAt).toISOString(),
+          },
+        }),
+      ).unwrap()
+      onOpenChange(false)
+      onDone()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  if (!instance) return null
+
+  return (
+    <Modal
+      isOpen={open}
+      onClose={() => onOpenChange(false)}
+      heading="Override shift times"
+      className="sm:min-w-0 sm:max-w-sm"
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[13px]">Start</Label>
+          <Input
+            required
+            type="datetime-local"
+            value={startAt}
+            onChange={(e) => setStartAt(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[13px]">End</Label>
+          <Input
+            required
+            type="datetime-local"
+            value={endAt}
+            onChange={(e) => setEndAt(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" disabled={isLoading}>
+            {isLoading ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function toLocalDatetime(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// --- Assign employee dialog (unchanged behavior) ---
 
 function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   const dispatch = useAppDispatch()
@@ -375,13 +466,13 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   const [employeeMembershipId, setEmployeeMembershipId] = React.useState("")
 
   const scheduledInstances = React.useMemo(
-    () => instances.filter((i) => i.status === ShiftInstanceStatus.SCHEDULED),
-    [instances]
+    () => instances.filter((i) => i.status === ShiftInstanceStatus.SCHEDULED || i.status === ShiftInstanceStatus.MODIFIED),
+    [instances],
   )
   const shiftOptions = React.useMemo(
     () =>
       scheduledInstances.map((instance) => ({
-        label: `${formatDate(instance.startAt)} ${formatTime(instance.startAt)} – ${formatTime(instance.endAt)}`,
+        label: `${formatDateISO(instance.shiftDate)} ${formatTime(instance.startAt)} – ${formatTime(instance.endAt)}`,
         value: instance.id,
       })),
     [scheduledInstances],
@@ -417,10 +508,15 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
       <Button size="sm" onClick={() => setOpen(true)}>
         Assign Employee
       </Button>
-      <Modal isOpen={open} onClose={() => setOpen(false)} heading="Assign employee to shift" className="sm:min-w-0 sm:max-w-sm">
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        heading="Assign employee to shift"
+        className="sm:min-w-0 sm:max-w-sm"
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Shift instance</Label>
+            <Label className="text-[13px]">Shift</Label>
             {scheduledInstances.length > 0 ? (
               <Combobox
                 value={shiftInstanceId}
@@ -440,7 +536,7 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Employee membership ID</Label>
+            <Label className="text-[13px]">Employee</Label>
             {employeeOptions.length > 0 ? (
               <Combobox
                 value={employeeMembershipId}
@@ -460,11 +556,7 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
             )}
           </div>
           <div className="flex justify-end">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isLoading || !shiftInstanceId}
-            >
+            <Button type="submit" size="sm" disabled={isLoading || !shiftInstanceId}>
               {isLoading ? "Assigning…" : "Assign"}
             </Button>
           </div>
@@ -477,7 +569,6 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
 // --- Main page ---
 
 const tabItems: { key: Tab; label: string }[] = [
-  { key: "templates", label: "Templates" },
   { key: "shifts", label: "Shifts" },
   { key: "assignments", label: "Assignments" },
 ]
@@ -485,55 +576,212 @@ const tabItems: { key: Tab; label: string }[] = [
 const Scheduling = () => {
   const dispatch = useAppDispatch()
 
-  const templates = useAppSelector((s) => s.scheduling.templates)
+  const patterns = useAppSelector((s) => s.scheduling.patterns)
   const instances = useAppSelector((s) => s.scheduling.instances)
   const assignments = useAppSelector((s) => s.scheduling.assignments)
-  const templatesPage = useAppSelector((s) => s.scheduling.templatesPage)
   const instancesPage = useAppSelector((s) => s.scheduling.instancesPage)
   const assignmentsPage = useAppSelector((s) => s.scheduling.assignmentsPage)
-  const statusTemplatesPage = useAppSelector((s) => s.scheduling.status.templatesPage)
   const statusInstancesPage = useAppSelector((s) => s.scheduling.status.instancesPage)
   const statusAssignmentsPage = useAppSelector((s) => s.scheduling.status.assignmentsPage)
 
-  const [activeTab, setActiveTab] = React.useState<Tab>("templates")
+  const [activeTab, setActiveTab] = React.useState<Tab>("shifts")
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 8,
   })
+  const [overrideTarget, setOverrideTarget] = React.useState<ShiftInstance | null>(null)
 
-  // Lookup fetch: full-ish lists used by dialogs (template/shift pickers) and
-  // summary card counts, independent of the active tab's table pagination.
   React.useEffect(() => {
-    dispatch(fetchTemplates())
+    dispatch(fetchPatterns())
     dispatch(fetchInstances())
     dispatch(fetchAssignments())
   }, [dispatch])
 
-  // Table fetch: paginated data for whichever tab is currently visible.
   React.useEffect(() => {
     const params = { page: pagination.pageIndex + 1, pageSize: pagination.pageSize }
-    if (activeTab === "templates") dispatch(fetchTemplatesPage(params))
-    else if (activeTab === "shifts") dispatch(fetchInstancesPage(params))
+    if (activeTab === "shifts") dispatch(fetchInstancesPage(params))
     else dispatch(fetchAssignmentsPage(params))
   }, [dispatch, activeTab, pagination.pageIndex, pagination.pageSize])
 
-  const summaryCards = [
-    { label: "Templates", value: String(templates.length), sub: "shift templates" },
-    { label: "Shifts", value: String(instances.length), sub: "shift instances" },
-    { label: "Assignments", value: String(assignments.length), sub: "active assignments" },
-  ]
+  const patternsById = React.useMemo(() => {
+    const map = new Map<string, ShiftPattern>()
+    for (const pattern of patterns) map.set(pattern.id, pattern)
+    return map
+  }, [patterns])
+
+  const summaryCards = React.useMemo(
+    () => [
+      { label: "Shifts", value: String(instances.length), sub: "upcoming shifts" },
+      { label: "Assignments", value: String(assignments.length), sub: "active assignments" },
+    ],
+    [instances.length, assignments.length],
+  )
+
+  const refreshInstances = () => {
+    dispatch(fetchInstances())
+    dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+  }
+
+  const handleCancel = async (instance: ShiftInstance) => {
+    try {
+      await dispatch(cancelInstance(instance.id)).unwrap()
+      refreshInstances()
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  const instanceColumns: ColumnDef<ShiftInstance>[] = React.useMemo(
+    () => [
+      {
+        accessorKey: "shiftDate",
+        header: "Date",
+        cell: ({ getValue }) => (
+          <span className="font-medium tabular-nums">{formatDateISO(getValue<string>())}</span>
+        ),
+        meta: { width: "10rem", cellClassName: "py-3" },
+      },
+      {
+        id: "shift",
+        header: "Shift",
+        cell: ({ row }) => (
+          <span className="text-[13px] tabular-nums text-muted-foreground">
+            {formatTime(row.original.startAt)} – {formatTime(row.original.endAt)}
+          </span>
+        ),
+        meta: { width: "12rem", cellClassName: "py-3" },
+      },
+      {
+        id: "pattern",
+        header: "Pattern",
+        cell: ({ row }) => {
+          const patternId = row.original.patternId
+          if (!patternId) return <span className="text-[13px] text-muted-foreground">—</span>
+          const pattern = patternsById.get(patternId)
+          if (!pattern) return <span className="text-[13px] text-muted-foreground">{shortId(patternId)}</span>
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[13px] font-medium">{pattern.name}</span>
+              <span className="text-[12px] text-muted-foreground">{daysLabel(pattern.daysOfWeek)}</span>
+            </div>
+          )
+        },
+        meta: { width: "16rem", cellClassName: "py-3" },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ getValue }) => {
+          const status = getValue<ShiftInstanceStatus>()
+          return (
+            <span
+              className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${instanceStatusClass[status]}`}
+            >
+              {status}
+            </span>
+          )
+        },
+        meta: { width: "8rem", cellClassName: "py-3" },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const instance = row.original
+          if (instance.status === ShiftInstanceStatus.CANCELLED || instance.status === ShiftInstanceStatus.COMPLETED) {
+            return null
+          }
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-xs" aria-label="Row actions">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setOverrideTarget(instance)}>
+                  Override times…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleCancel(instance)}>
+                  Cancel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+        meta: { align: "right", width: "4rem", cellClassName: "py-3" },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patternsById],
+  )
+
+  const assignmentColumns: ColumnDef<ShiftAssignment>[] = React.useMemo(
+    () => [
+      {
+        accessorKey: "id",
+        header: "Assignment",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
+        ),
+        meta: { width: "8rem", cellClassName: "py-3" },
+      },
+      {
+        accessorKey: "shiftInstanceId",
+        header: "Shift",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
+        ),
+        meta: { width: "8rem", cellClassName: "py-3" },
+      },
+      {
+        accessorKey: "employeeMembershipId",
+        header: "Employee",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
+        ),
+        meta: { width: "8rem", cellClassName: "py-3" },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ getValue }) => {
+          const status = getValue<ShiftAssignmentStatus>()
+          return (
+            <span
+              className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${assignmentStatusClass[status]}`}
+            >
+              {status}
+            </span>
+          )
+        },
+        meta: { align: "right", width: "10rem", cellClassName: "py-3" },
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created",
+        cell: ({ getValue }) => (
+          <span className="tabular-nums text-muted-foreground">
+            {new Date(getValue<string>()).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ),
+        meta: { align: "right", width: "9rem", cellClassName: "py-3" },
+      },
+    ],
+    [],
+  )
 
   const isLoadingCurrent =
-    activeTab === "templates"
-      ? statusTemplatesPage === "loading" && templatesPage.data.length === 0
-      : activeTab === "shifts"
+    activeTab === "shifts"
       ? statusInstancesPage === "loading" && instancesPage.data.length === 0
       : statusAssignmentsPage === "loading" && assignmentsPage.data.length === 0
 
   const isFetchingCurrent =
-    activeTab === "templates"
-      ? statusTemplatesPage === "loading" && templatesPage.data.length > 0
-      : activeTab === "shifts"
+    activeTab === "shifts"
       ? statusInstancesPage === "loading" && instancesPage.data.length > 0
       : statusAssignmentsPage === "loading" && assignmentsPage.data.length > 0
 
@@ -552,8 +800,7 @@ const Scheduling = () => {
 
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-            {/* Summary cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {summaryCards.map((m, idx) => (
                 <Card key={idx}>
                   <CardHeader className="pb-2">
@@ -571,7 +818,6 @@ const Scheduling = () => {
               ))}
             </div>
 
-            {/* Tab bar */}
             <div className="flex items-center gap-1 border-b border-border">
               {tabItems.map((tab) => (
                 <button
@@ -593,43 +839,13 @@ const Scheduling = () => {
               ))}
             </div>
 
-            {/* Templates tab */}
-            {activeTab === "templates" && (
-              <DataTable
-                eyebrow="Scheduling"
-                title="Shift templates"
-                columns={templateColumns}
-                data={templatesPage.data}
-                tableClassName="min-w-[720px]"
-                getRowId={(t) => t.id}
-                pagination={pagination}
-                paginationInfo={templatesPage}
-                onPaginationChange={setPagination}
-                rowCount={templatesPage.total}
-                pageSizeOptions={[8, 16, 32]}
-                isLoading={isLoadingCurrent}
-                isFetching={isFetchingCurrent}
-                emptyTitle="No templates yet"
-                emptyDescription="Create a template to define recurring shift patterns."
-                actions={
-                  <NewTemplateDialog
-                    onCreated={() => {
-                      dispatch(fetchTemplates())
-                      dispatch(fetchTemplatesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
-                    }}
-                  />
-                }
-              />
-            )}
-
-            {/* Shifts tab */}
             {activeTab === "shifts" && (
               <DataTable
                 eyebrow="Scheduling"
-                title="Shift instances"
+                title="Shifts"
                 columns={instanceColumns}
                 data={instancesPage.data}
-                tableClassName="min-w-[680px]"
+                tableClassName="min-w-[820px]"
                 getRowId={(i) => i.id}
                 pagination={pagination}
                 paginationInfo={instancesPage}
@@ -643,15 +859,14 @@ const Scheduling = () => {
                 actions={
                   <NewShiftDialog
                     onCreated={() => {
-                      dispatch(fetchInstances())
-                      dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+                      dispatch(fetchPatterns())
+                      refreshInstances()
                     }}
                   />
                 }
               />
             )}
 
-            {/* Assignments tab */}
             {activeTab === "assignments" && (
               <DataTable
                 eyebrow="Scheduling"
@@ -673,12 +888,29 @@ const Scheduling = () => {
                   <AssignEmployeeDialog
                     onCreated={() => {
                       dispatch(fetchAssignments())
-                      dispatch(fetchAssignmentsPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
+                      dispatch(
+                        fetchAssignmentsPage({
+                          page: pagination.pageIndex + 1,
+                          pageSize: pagination.pageSize,
+                        }),
+                      )
                     }}
                   />
                 }
               />
             )}
+
+            <OverrideInstanceDialog
+              instance={overrideTarget}
+              open={overrideTarget !== null}
+              onOpenChange={(o) => {
+                if (!o) setOverrideTarget(null)
+              }}
+              onDone={() => {
+                refreshInstances()
+                setOverrideTarget(null)
+              }}
+            />
           </div>
         </div>
       </SidebarInset>

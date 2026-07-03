@@ -848,10 +848,15 @@ const Scheduling = () => {
                 tableClassName="min-w-[820px]"
                 getRowId={(i) => i.id}
                 pagination={pagination}
-                paginationInfo={instancesPage}
+                paginationInfo={{
+                  page: instancesPage.page,
+                  pageSize: instancesPage.pageSize || pagination.pageSize,
+                  total: instancesPage.total,
+                }}
                 onPaginationChange={setPagination}
                 rowCount={instancesPage.total}
                 pageSizeOptions={[8, 16, 32]}
+                syncPaginationFromInfo
                 isLoading={isLoadingCurrent}
                 isFetching={isFetchingCurrent}
                 emptyTitle="No shifts scheduled"
@@ -876,10 +881,15 @@ const Scheduling = () => {
                 tableClassName="min-w-[720px]"
                 getRowId={(a) => a.id}
                 pagination={pagination}
-                paginationInfo={assignmentsPage}
+                paginationInfo={{
+                  page: assignmentsPage.page,
+                  pageSize: assignmentsPage.pageSize || pagination.pageSize,
+                  total: assignmentsPage.total,
+                }}
                 onPaginationChange={setPagination}
                 rowCount={assignmentsPage.total}
                 pageSizeOptions={[8, 16, 32]}
+                syncPaginationFromInfo
                 isLoading={isLoadingCurrent}
                 isFetching={isFetchingCurrent}
                 emptyTitle="No assignments yet"

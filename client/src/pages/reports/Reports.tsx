@@ -555,6 +555,7 @@ const Reports = () => {
                 onPaginationChange={setHoursPagination}
                 rowCount={hoursPage.total}
                 pageSizeOptions={[10, 25, 50]}
+                syncPaginationFromInfo
                 isLoading={status.hoursByEmployee === "loading" && hoursPage.data.length === 0}
                 isFetching={status.hoursByEmployee === "loading" && hoursPage.data.length > 0}
                 emptyTitle="No attendance on selected day"
@@ -574,6 +575,7 @@ const Reports = () => {
                 onPaginationChange={setExceptionsPagination}
                 rowCount={exceptionsPage.total}
                 pageSizeOptions={[10, 25, 50]}
+                syncPaginationFromInfo
                 isLoading={status.exceptions === "loading" && exceptionsPage.data.length === 0}
                 isFetching={status.exceptions === "loading" && exceptionsPage.data.length > 0}
                 emptyTitle="No exceptions in range"

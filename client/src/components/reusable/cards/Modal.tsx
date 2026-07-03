@@ -61,10 +61,6 @@ const JSX_MODAL: FC<ModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={`z-9000 !pointer-events-auto min-w-[45vw] ${className ?? ''} overflow-y-auto max-h-[90vh]`}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
         onInteractOutside={preventNestedPortalDismiss}
         onPointerDownOutside={preventNestedPortalDismiss}
       >

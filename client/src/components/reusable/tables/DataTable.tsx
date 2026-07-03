@@ -93,6 +93,7 @@ type DataTableProps<TData, TValue> = {
   paginationLabels?: DataTablePaginationLabels
   manualPagination?: boolean
   hidePagination?: boolean
+  syncPaginationFromInfo?: boolean
 }
 
 const alignmentClassNames = {
@@ -141,6 +142,7 @@ function DataTable<TData, TValue>({
   paginationLabels,
   manualPagination = Boolean((pagination || paginationInfo) && onPaginationChange),
   hidePagination = false,
+  syncPaginationFromInfo = false,
 }: DataTableProps<TData, TValue>) {
   const [internalPagination, setInternalPagination] =
     React.useState<PaginationState>({
@@ -158,15 +160,26 @@ function DataTable<TData, TValue>({
   // can detect the precise render where a fresh paginationInfo payload arrived.
   const lastSeenInfoSizeRef = React.useRef<number | null>(null)
   const prevInfoSigRef = React.useRef<string>('')
-  React.useEffect(() => {
-    if (paginationInfo && (paginationInfo.total || 0) > 0) {
-      lastSeenInfoSizeRef.current = paginationInfo.pageSize
-    }
-  }, [paginationInfo?.page, paginationInfo?.pageSize, paginationInfo?.total])
+  const infoPage = paginationInfo?.page
+  const infoPageSize = paginationInfo?.pageSize
+  const infoTotal = paginationInfo?.total
+  const infoPageCount = paginationInfo?.pageCount
+  const paginationPageIndex = pagination?.pageIndex
+  const paginationPageSize = pagination?.pageSize
 
-  const infoSig = paginationInfo ? `${paginationInfo.page}|${paginationInfo.pageSize}|${paginationInfo.total}` : ''
+  React.useEffect(() => {
+    if ((infoTotal || 0) > 0 && infoPageSize != null) {
+      lastSeenInfoSizeRef.current = infoPageSize
+    }
+  }, [infoPage, infoPageSize, infoTotal])
+
+  const infoSig = infoPage != null && infoPageSize != null && infoTotal != null ? `${infoPage}|${infoPageSize}|${infoTotal}` : ''
   const infoJustUpdated = infoSig !== '' && infoSig !== prevInfoSigRef.current
-  if (infoJustUpdated) prevInfoSigRef.current = infoSig
+  React.useEffect(() => {
+    if (infoSig !== '') {
+      prevInfoSigRef.current = infoSig
+    }
+  }, [infoSig])
 
   // Effective size used for the controlled state object passed to useReactTable *and* for
   // the footer Select + range text. This keeps them consistent and drives "latest returned".
@@ -179,22 +192,33 @@ function DataTable<TData, TValue>({
   //   - user size choice snapping to stale info on the change render
   //   - initial empty info (total=0) polluting display/options
   //   - cross-consumer (Dashboard vs Timesheets sharing history) stomping each other's local state
-  const infoIdx = paginationInfo ? Math.max(paginationInfo.page - 1, 0) : -999
-  const isCurrentPageRealInfo = paginationInfo && !isPending && (paginationInfo.total || 0) > 0 && infoIdx === basePagination.pageIndex
+  const infoIdx = infoPage != null ? Math.max(infoPage - 1, 0) : -999
+  const isCurrentPageRealInfo = infoPageSize != null && !isPending && (infoTotal || 0) > 0 && infoIdx === basePagination.pageIndex
   const lastSeen = lastSeenInfoSizeRef.current
   const propMatchesLastServer = lastSeen == null || basePagination.pageSize === lastSeen
+  const shouldSyncFromInfo =
+    syncPaginationFromInfo &&
+    infoJustUpdated &&
+    infoPage != null &&
+    infoPageSize != null &&
+    !isPending &&
+    (infoTotal || 0) > 0
 
   const shouldTakeInfoSize = isCurrentPageRealInfo && (propMatchesLastServer || infoJustUpdated)
-  const effectivePageSize = shouldTakeInfoSize ? paginationInfo!.pageSize : basePagination.pageSize
+  const effectivePageSize = shouldSyncFromInfo
+    ? infoPageSize
+    : shouldTakeInfoSize
+      ? infoPageSize
+      : basePagination.pageSize
 
   const controlledPagination = {
-    pageIndex: basePagination.pageIndex,
+    pageIndex: shouldSyncFromInfo ? Math.max(infoPage - 1, 0) : basePagination.pageIndex,
     pageSize: effectivePageSize,
   }
 
-  const resolvedRowCount = paginationInfo?.total ?? rowCount
-  const resolvedPageCount = paginationInfo
-    ? (paginationInfo.pageCount ?? Math.max(1, Math.ceil((paginationInfo.total || 0) / Math.max(1, paginationInfo.pageSize || 1))))
+  const resolvedRowCount = infoTotal ?? rowCount
+  const resolvedPageCount = infoPageSize != null
+    ? (infoPageCount ?? Math.max(1, Math.ceil((infoTotal || 0) / Math.max(1, infoPageSize || 1))))
     : pageCount
 
   // displayPageSize is the same effective value so Select and range are consistent with
@@ -203,12 +227,12 @@ function DataTable<TData, TValue>({
 
   const resolvedPageSizeOptions = React.useMemo(() => {
     const options = [...pageSizeOptions]
-    const candidate = paginationInfo && (paginationInfo.total || 0) > 0 ? paginationInfo.pageSize : null
+    const candidate = infoPageSize != null && (infoTotal || 0) > 0 ? infoPageSize : null
     if (candidate != null && !options.includes(candidate)) {
       options.push(candidate)
     }
     return options.sort((a, b) => a - b)
-  }, [pageSizeOptions, paginationInfo])
+  }, [pageSizeOptions, infoPageSize, infoTotal])
 
   const handlePaginationChange: OnChangeFn<PaginationState> = (updater) => {
     const nextPagination = resolveUpdater(updater, controlledPagination)
@@ -229,27 +253,37 @@ function DataTable<TData, TValue>({
   //   in the current render is not clobbered, and that initial empty info doesn't win.
   React.useEffect(() => {
     if (!infoJustUpdated) return
-    if (!onPaginationChange || isPending || !paginationInfo) return
-    const hasRealData = (paginationInfo.total || 0) > 0
+    if (!onPaginationChange || isPending || infoPage == null || infoPageSize == null) return
+    const hasRealData = (infoTotal || 0) > 0
     if (!hasRealData) return
     const fromInfo = {
-      pageIndex: Math.max(paginationInfo.page - 1, 0),
-      pageSize: paginationInfo.pageSize,
+      pageIndex: Math.max(infoPage - 1, 0),
+      pageSize: infoPageSize,
     }
-    const fromProp = pagination
-      ? { pageIndex: pagination.pageIndex, pageSize: pagination.pageSize }
+    const fromProp = paginationPageIndex != null && paginationPageSize != null
+      ? { pageIndex: paginationPageIndex, pageSize: paginationPageSize }
       : undefined
-    if (!fromProp || fromProp.pageSize !== fromInfo.pageSize) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onPaginationChange({ ...fromProp, pageSize: fromInfo.pageSize } as any)
+
+    if (syncPaginationFromInfo) {
+      if (!fromProp || fromProp.pageIndex !== fromInfo.pageIndex || fromProp.pageSize !== fromInfo.pageSize) {
+        onPaginationChange(fromInfo)
+      }
+      return
+    }
+
+    if (fromProp && fromProp.pageSize !== fromInfo.pageSize) {
+      onPaginationChange({ ...fromProp, pageSize: fromInfo.pageSize })
     }
   }, [
     onPaginationChange,
     isPending,
     infoJustUpdated,
-    paginationInfo?.pageSize,
-    pagination?.pageIndex,
-    pagination?.pageSize,
+    infoPage,
+    infoPageSize,
+    infoTotal,
+    paginationPageIndex,
+    paginationPageSize,
+    syncPaginationFromInfo,
   ])
 
   // eslint-disable-next-line react-hooks/incompatible-library

@@ -15,7 +15,7 @@ import type { PaginatedResult, PaginationParams } from '@/lib/api/pagination'
 
 type LoadStatus = 'idle' | 'loading' | 'error'
 
-const emptyPage = <T,>(): PaginatedResult<T> => ({ data: [], total: 0, page: 1, pageSize: 10 })
+const emptyPage = <T,>(): PaginatedResult<T> => ({ data: [], total: 0, page: 1, pageSize: 0 })
 
 const LOOKUP_PAGE_SIZE = 100
 

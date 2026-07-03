@@ -363,6 +363,7 @@ const Timesheets = () => {
               onPaginationChange={setPagination}
               rowCount={history.total}
               pageSizeOptions={[8, 16, 32]}
+              syncPaginationFromInfo
               isLoading={isLoading}
               isFetching={isFetching}
               emptyTitle="No timesheet entries"

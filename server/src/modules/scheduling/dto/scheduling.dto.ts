@@ -19,6 +19,14 @@ import { ShiftInstanceStatus } from '../entities/shift-instance.entity';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+export class ScheduleDateRangeQueryDto {
+  @IsDateString()
+  from: string;
+
+  @IsDateString()
+  to: string;
+}
+
 export class ListSchedulingQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsDateString()
@@ -154,4 +162,12 @@ export class CreateShiftAssignmentDto {
 
   @IsUUID()
   shiftInstanceId: string;
+}
+
+export class CreateShiftPatternAssignmentDto {
+  @IsUUID()
+  employeeMembershipId: string;
+
+  @IsUUID()
+  patternId: string;
 }

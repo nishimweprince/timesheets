@@ -60,6 +60,9 @@ export class AttendanceEvent {
   @Column({ name: 'resolved_shift_instance_id', type: 'uuid', nullable: true })
   resolvedShiftInstanceId: string | null;
 
+  @Column({ name: 'resolved_shift_pattern_id', type: 'uuid', nullable: true })
+  resolvedShiftPatternId: string | null;
+
   @Column({ name: 'location_point', type: 'geography', spatialFeatureType: 'Point', srid: 4326, nullable: true })
   locationPoint: { type: 'Point'; coordinates: [number, number] } | null;
 

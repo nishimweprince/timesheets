@@ -18,9 +18,11 @@ import {
   CreateShiftInstanceDto,
   CreateShiftPatternAssignmentDto,
   CreateShiftPatternDto,
+  ListShiftPatternAssignmentsQueryDto,
   ListSchedulingQueryDto,
   OverrideShiftInstanceDto,
   ScheduleDateRangeQueryDto,
+  UpdateShiftPatternAssignmentDto,
   UpdateShiftPatternDto,
 } from "./dto/scheduling.dto";
 import { SchedulingService } from "./scheduling.service";
@@ -137,6 +139,39 @@ export class SchedulingController {
     return this.schedulingService.assignPattern(user, dto);
   }
 
+  @Get("shift-pattern-assignments")
+  @Permissions("shift.read")
+  findPatternAssignments(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListShiftPatternAssignmentsQueryDto,
+  ) {
+    return this.schedulingService.findPatternAssignments(user, query);
+  }
+
+  @Patch("shift-pattern-assignments/:id")
+  @Permissions("shift.assign")
+  @ResponseMessage("Shift pattern assignment updated")
+  updatePatternAssignment(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateShiftPatternAssignmentDto,
+  ) {
+    return this.schedulingService.updatePatternAssignment(user, id, dto);
+  }
+
+  @Delete("shift-pattern-assignments/:id")
+  @Permissions("shift.assign")
+  @ResponseMessage("Shift pattern assignment cancelled")
+  cancelPatternAssignment(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ) {
+    return this.schedulingService.cancelPatternAssignment(user, id);
+  }
+
+  // Legacy/internal: retained for backwards compatibility with historical
+  // instance-level assignment records. New admin scheduling should use pattern
+  // assignments instead of this route.
   @Get("shift-assignments")
   @Permissions("shift.read")
   findAssignments(
@@ -146,6 +181,7 @@ export class SchedulingController {
     return this.schedulingService.findAssignments(user, query);
   }
 
+  // Legacy/internal: do not call from new UI flows.
   @Post("shift-assignments")
   @Permissions("shift.assign")
   @ResponseMessage("Shift assigned successfully")

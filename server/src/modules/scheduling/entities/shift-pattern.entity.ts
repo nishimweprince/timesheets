@@ -26,6 +26,9 @@ export class ShiftPattern extends TenantBaseDomain {
   @Column({ name: 'work_site_id', type: 'uuid', nullable: true })
   workSiteId: string | null;
 
+  @Column({ name: 'assigned_employee_membership_id', type: 'uuid', nullable: true })
+  assignedEmployeeMembershipId: string | null;
+
   @Column({ type: 'text', nullable: true })
   rrule: string | null;
 

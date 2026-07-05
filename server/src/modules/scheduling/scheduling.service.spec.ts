@@ -68,12 +68,16 @@ function makeService(patternAssignments: ShiftPatternAssignment[], patterns: Shi
       )
     )
   };
+  const membershipRepo = {
+    findOne: jest.fn()
+  };
 
   const service = new SchedulingService(
     patternRepo as never,
     instanceRepo as never,
     assignmentRepo as never,
-    patternAssignmentRepo as never
+    patternAssignmentRepo as never,
+    membershipRepo as never
   );
   return { service, patternRepo, instanceRepo, patternAssignmentRepo };
 }

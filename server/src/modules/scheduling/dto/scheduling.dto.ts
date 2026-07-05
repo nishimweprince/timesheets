@@ -40,6 +40,14 @@ export class ListSchedulingQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   patternId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  employeeMembershipId?: string;
+
+  @IsOptional()
+  @IsEnum(ShiftPatternAssignmentStatus)
+  patternAssignmentStatus?: ShiftPatternAssignmentStatus;
 }
 
 export class CreateShiftPatternDto {
@@ -191,16 +199,16 @@ export class CreateShiftPatternAssignmentDto {
 
 export class UpdateShiftPatternAssignmentDto {
   @IsOptional()
-  @IsEnum(ShiftPatternAssignmentStatus)
-  status?: ShiftPatternAssignmentStatus;
-
-  @IsOptional()
   @IsDateString()
   effectiveFrom?: string;
 
   @IsOptional()
   @IsDateString()
   effectiveUntil?: string;
+
+  @IsOptional()
+  @IsEnum(ShiftPatternAssignmentStatus)
+  status?: ShiftPatternAssignmentStatus;
 }
 
 export class ListShiftPatternAssignmentsQueryDto extends PaginationQueryDto {

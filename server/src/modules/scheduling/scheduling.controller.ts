@@ -82,11 +82,11 @@ export class SchedulingController {
 
   @Get("me/shifts")
   @Permissions("shift.read")
-  findMyAssignedShifts(
+  findMyShifts(
     @CurrentUser() user: RequestUser,
-    @Query() query: ListSchedulingQueryDto,
+    @Query() query: ScheduleDateRangeQueryDto,
   ) {
-    return this.schedulingService.findMyAssignedShifts(user, query);
+    return this.schedulingService.findMyShifts(user, query);
   }
 
   @Get("shift-instances")

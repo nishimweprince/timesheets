@@ -5,12 +5,22 @@ import { ShiftInstance } from './entities/shift-instance.entity';
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { ShiftPatternAssignment } from './entities/shift-pattern-assignment.entity';
 import { ShiftSwapRequest } from './entities/shift-swap-request.entity';
+import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import { SchedulingService } from './scheduling.service';
 import { SchedulingController } from './scheduling.controller';
 import { SchedulingMaterializer } from './scheduling.materializer';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ShiftPattern, ShiftInstance, ShiftAssignment, ShiftPatternAssignment, ShiftSwapRequest])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ShiftPattern,
+      ShiftInstance,
+      ShiftAssignment,
+      ShiftPatternAssignment,
+      ShiftSwapRequest,
+      OrganizationMembership
+    ])
+  ],
   controllers: [SchedulingController],
   providers: [SchedulingService, SchedulingMaterializer],
   exports: [SchedulingService]

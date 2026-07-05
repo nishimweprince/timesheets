@@ -25,10 +25,11 @@ import {
   ShiftPatternAssignment,
   ShiftPatternAssignmentStatus,
 } from "./entities/shift-pattern-assignment.entity";
+import { OrganizationMembership } from '../organizations/entities/organization-membership.entity';
 import {
   CreateShiftAssignmentDto,
-  CreateShiftInstanceDto,
   CreateShiftPatternAssignmentDto,
+  CreateShiftInstanceDto,
   CreateShiftPatternDto,
   ListShiftPatternAssignmentsQueryDto,
   ListSchedulingQueryDto,
@@ -72,6 +73,8 @@ export class SchedulingService {
     private readonly assignments: Repository<ShiftAssignment>,
     @InjectRepository(ShiftPatternAssignment)
     private readonly patternAssignments: Repository<ShiftPatternAssignment>,
+    @InjectRepository(OrganizationMembership)
+    private readonly memberships: Repository<OrganizationMembership>,
   ) {}
 
   // Patterns
@@ -195,6 +198,7 @@ export class SchedulingService {
     const startAt = new Date(dto.startAt);
     const shiftDate = DateTime.fromJSDate(startAt).toUTC().toISODate();
     if (!shiftDate) throw new BadRequestException("Invalid startAt");
+    if (dto.patternId) await this.ensurePatternInOrganization(user.organizationId, dto.patternId);
     return this.instances.save(
       this.instances.create({
         organizationId: user.organizationId,
@@ -271,6 +275,7 @@ export class SchedulingService {
       where: { id: dto.shiftInstanceId, organizationId: user.organizationId },
     });
     if (!instance) throw new NotFoundException("Shift instance not found");
+    await this.ensureEmployeeMembershipInOrganization(user.organizationId, dto.employeeMembershipId);
     return this.assignments.save(
       this.assignments.create({
         organizationId: user.organizationId,
@@ -302,10 +307,8 @@ export class SchedulingService {
   }
 
   async assignPattern(user: RequestUser, dto: CreateShiftPatternAssignmentDto): Promise<ShiftPatternAssignment> {
-    const pattern = await this.patterns.findOne({
-      where: { id: dto.shiftPatternId, organizationId: user.organizationId }
-    });
-    if (!pattern) throw new NotFoundException('Shift pattern not found');
+    await this.ensurePatternInOrganization(user.organizationId, dto.shiftPatternId);
+    await this.ensureEmployeeMembershipInOrganization(user.organizationId, dto.employeeMembershipId);
     return this.patternAssignments.save(
       this.patternAssignments.create({
         organizationId: user.organizationId,
@@ -576,8 +579,19 @@ export class SchedulingService {
     };
   }
 
-  // Clock-in resolution prefers pattern-level assignment plus instance id, then
-  // falls back to legacy instance-level shift_assignments for historical data.
+  private async ensurePatternInOrganization(organizationId: string, patternId: string): Promise<ShiftPattern> {
+    const pattern = await this.patterns.findOne({ where: { id: patternId, organizationId } });
+    if (!pattern) throw new NotFoundException('Shift pattern not found');
+    return pattern;
+  }
+
+  private async ensureEmployeeMembershipInOrganization(organizationId: string, employeeMembershipId: string): Promise<void> {
+    const membership = await this.memberships.findOne({ where: { id: employeeMembershipId, organizationId } });
+    if (!membership) throw new NotFoundException('Employee not found');
+  }
+
+  // Clock-in resolution prefers pattern-level assignments, then falls back to
+  // legacy instance-level shift_assignments for historical data.
 
   async resolveShift(
     organizationId: string,

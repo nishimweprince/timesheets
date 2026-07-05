@@ -63,6 +63,17 @@ export interface ShiftAssignment {
   createdAt: string
 }
 
+export interface ShiftPatternAssignment {
+  id: string
+  organizationId: string
+  employeeMembershipId: string
+  shiftPatternId: string
+  status: ShiftAssignmentStatus
+  effectiveFrom: string | null
+  effectiveUntil: string | null
+  createdAt: string
+}
+
 export interface CreateShiftPatternPayload {
   name: string
   startTime: string
@@ -115,6 +126,21 @@ export interface MyShift {
   shift: ShiftInstance
 }
 
+export interface CreateShiftPatternAssignmentPayload {
+  employeeMembershipId: string
+  shiftPatternId: string
+  effectiveFrom?: string
+  effectiveUntil?: string
+}
+
+export interface UpdateShiftPatternAssignmentPayload {
+  employeeMembershipId?: string
+  shiftPatternId?: string
+  effectiveFrom?: string
+  effectiveUntil?: string
+  status?: ShiftAssignmentStatus
+}
+
 export interface ShiftInstanceQueryParams extends PaginationParams {
   from?: string
   to?: string
@@ -164,5 +190,21 @@ export const schedulingApi = {
 
   createAssignment(body: CreateShiftAssignmentPayload): Promise<ShiftAssignment> {
     return apiRequest<ShiftAssignment>('/shift-assignments', { method: 'POST', body })
+  },
+
+  patternAssignments(params?: PaginationParams): Promise<PaginatedResult<ShiftPatternAssignment>> {
+    return apiRequest<PaginatedResult<ShiftPatternAssignment>>(`/shift-pattern-assignments${toQueryString({ ...params })}`)
+  },
+
+  createPatternAssignment(body: CreateShiftPatternAssignmentPayload): Promise<ShiftPatternAssignment> {
+    return apiRequest<ShiftPatternAssignment>('/shift-pattern-assignments', { method: 'POST', body })
+  },
+
+  updatePatternAssignment(id: string, body: UpdateShiftPatternAssignmentPayload): Promise<ShiftPatternAssignment> {
+    return apiRequest<ShiftPatternAssignment>(`/shift-pattern-assignments/${id}`, { method: 'PATCH', body })
+  },
+
+  cancelPatternAssignment(id: string): Promise<ShiftPatternAssignment> {
+    return apiRequest<ShiftPatternAssignment>(`/shift-pattern-assignments/${id}/cancel`, { method: 'POST' })
   },
 }

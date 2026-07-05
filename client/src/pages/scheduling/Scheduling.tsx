@@ -2,8 +2,6 @@
 
 import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
-import { MoreHorizontal } from "lucide-react"
-
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -15,12 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Modal from "@/components/reusable/cards/Modal"
@@ -31,21 +23,16 @@ import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
-  cancelInstance,
-  createAssignment,
+  createPatternAssignment,
   createPattern,
-  fetchAssignments,
-  fetchAssignmentsPage,
-  fetchInstances,
-  fetchInstancesPage,
+  fetchPatternAssignments,
+  fetchPatternAssignmentsPage,
   fetchPatterns,
-  overrideInstance,
+  fetchPatternsPage,
 } from "@/states/features/scheduling.slice"
 import {
   ShiftAssignmentStatus,
-  ShiftInstanceStatus,
-  type ShiftAssignment,
-  type ShiftInstance,
+  type ShiftPatternAssignment,
   type ShiftPattern,
 } from "@/lib/api/scheduling.api"
 import { showApiErrorToast } from "@/lib/api/errors"
@@ -67,13 +54,6 @@ function formatDateISO(iso: string) {
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-}
 
 function toIsoDate(date: Date | undefined): string {
   if (!date) return ""
@@ -122,12 +102,6 @@ function daysLabel(days: number[]): string {
 
 // --- badge styles ---
 
-const instanceStatusClass: Record<ShiftInstanceStatus, string> = {
-  [ShiftInstanceStatus.SCHEDULED]: "border-success/20 bg-success/10 text-success",
-  [ShiftInstanceStatus.CANCELLED]: "border-border bg-muted text-muted-foreground",
-  [ShiftInstanceStatus.MODIFIED]: "border-warning/25 bg-warning/10 text-warning",
-  [ShiftInstanceStatus.COMPLETED]: "border-primary/20 bg-primary/10 text-primary",
-}
 
 const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
   [ShiftAssignmentStatus.ACTIVE]: "border-success/20 bg-success/10 text-success",
@@ -364,118 +338,31 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-// --- Override instance dialog ---
-
-function OverrideInstanceDialog({
-  instance,
-  open,
-  onOpenChange,
-  onDone,
-}: {
-  instance: ShiftInstance | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onDone: () => void
-}) {
-  const dispatch = useAppDispatch()
-  const isLoading = useAppSelector((s) => s.scheduling.status.overrideInstance === "loading")
-  const [startAt, setStartAt] = React.useState("")
-  const [endAt, setEndAt] = React.useState("")
-
-  React.useEffect(() => {
-    if (instance) {
-      setStartAt(toLocalDatetime(instance.startAt))
-      setEndAt(toLocalDatetime(instance.endAt))
-    }
-  }, [instance])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!instance) return
-    try {
-      await dispatch(
-        overrideInstance({
-          id: instance.id,
-          payload: {
-            startAt: new Date(startAt).toISOString(),
-            endAt: new Date(endAt).toISOString(),
-          },
-        }),
-      ).unwrap()
-      onOpenChange(false)
-      onDone()
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
-  if (!instance) return null
-
-  return (
-    <Modal
-      isOpen={open}
-      onClose={() => onOpenChange(false)}
-      heading="Override shift times"
-      className="sm:min-w-0 sm:max-w-sm"
-    >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Start</Label>
-          <Input
-            required
-            type="datetime-local"
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">End</Label>
-          <Input
-            required
-            type="datetime-local"
-            value={endAt}
-            onChange={(e) => setEndAt(e.target.value)}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={isLoading}>
-            {isLoading ? "Saving…" : "Save changes"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
-function toLocalDatetime(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-// --- Assign employee dialog (unchanged behavior) ---
+// --- Assign employee dialog ---
 
 function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   const dispatch = useAppDispatch()
-  const instances = useAppSelector((s) => s.scheduling.instances)
+  const patterns = useAppSelector((s) => s.scheduling.patterns)
   const employees = useAppSelector((s) => s.employeeManagement.employees)
   const isLoading = useAppSelector((s) => s.scheduling.status.assign === "loading")
 
   const [open, setOpen] = React.useState(false)
-  const [shiftInstanceId, setShiftInstanceId] = React.useState("")
+  const [shiftPatternId, setShiftPatternId] = React.useState("")
   const [employeeMembershipId, setEmployeeMembershipId] = React.useState("")
+  const [effectiveFrom, setEffectiveFrom] = React.useState<Date | undefined>(undefined)
+  const [effectiveUntil, setEffectiveUntil] = React.useState<Date | undefined>(undefined)
 
-  const scheduledInstances = React.useMemo(
-    () => instances.filter((i) => i.status === ShiftInstanceStatus.SCHEDULED || i.status === ShiftInstanceStatus.MODIFIED),
-    [instances],
+  const activePatterns = React.useMemo(
+    () => patterns.filter((pattern) => pattern.active),
+    [patterns],
   )
   const shiftOptions = React.useMemo(
     () =>
-      scheduledInstances.map((instance) => ({
-        label: `${formatDateISO(instance.shiftDate)} ${formatTime(instance.startAt)} – ${formatTime(instance.endAt)}`,
-        value: instance.id,
+      activePatterns.map((pattern) => ({
+        label: `${pattern.name} · ${daysLabel(pattern.daysOfWeek)} · ${pattern.startTime} – ${pattern.endTime}`,
+        value: pattern.id,
       })),
-    [scheduledInstances],
+    [activePatterns],
   )
   const employeeOptions = React.useMemo(
     () =>
@@ -493,10 +380,17 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await dispatch(createAssignment({ shiftInstanceId, employeeMembershipId })).unwrap()
+      await dispatch(createPatternAssignment({
+        shiftPatternId,
+        employeeMembershipId,
+        ...(effectiveFrom ? { effectiveFrom: toIsoDate(effectiveFrom) } : {}),
+        ...(effectiveUntil ? { effectiveUntil: toIsoDate(effectiveUntil) } : {}),
+      })).unwrap()
       setOpen(false)
-      setShiftInstanceId("")
+      setShiftPatternId("")
       setEmployeeMembershipId("")
+      setEffectiveFrom(undefined)
+      setEffectiveUntil(undefined)
       onCreated()
     } catch (err) {
       showApiErrorToast(err)
@@ -511,26 +405,26 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
       <Modal
         isOpen={open}
         onClose={() => setOpen(false)}
-        heading="Assign employee to shift"
+        heading="Assign employee to shift pattern"
         className="sm:min-w-0 sm:max-w-sm"
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Shift</Label>
-            {scheduledInstances.length > 0 ? (
+            <Label className="text-[13px]">Shift pattern</Label>
+            {activePatterns.length > 0 ? (
               <Combobox
-                value={shiftInstanceId}
-                onChange={setShiftInstanceId}
+                value={shiftPatternId}
+                onChange={setShiftPatternId}
                 options={shiftOptions}
-                placeholder="Select a shift"
-                searchPlaceholder="Search shifts"
+                placeholder="Select a shift pattern"
+                searchPlaceholder="Search shift patterns"
               />
             ) : (
               <Input
                 required
-                placeholder="Shift instance ID"
-                value={shiftInstanceId}
-                onChange={(e) => setShiftInstanceId(e.target.value)}
+                placeholder="Shift pattern ID"
+                value={shiftPatternId}
+                onChange={(e) => setShiftPatternId(e.target.value)}
                 className="font-mono"
               />
             )}
@@ -555,8 +449,18 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
               />
             )}
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px]">Starts on (optional)</Label>
+              <DatePicker value={effectiveFrom} onChange={setEffectiveFrom} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px]">Ends on (optional)</Label>
+              <DatePicker value={effectiveUntil} onChange={setEffectiveUntil} fromDate={effectiveFrom} />
+            </div>
+          </div>
           <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading || !shiftInstanceId}>
+            <Button type="submit" size="sm" disabled={isLoading || !shiftPatternId || !employeeMembershipId}>
               {isLoading ? "Assigning…" : "Assign"}
             </Button>
           </div>
@@ -577,146 +481,96 @@ const Scheduling = () => {
   const dispatch = useAppDispatch()
 
   const patterns = useAppSelector((s) => s.scheduling.patterns)
-  const instances = useAppSelector((s) => s.scheduling.instances)
-  const assignments = useAppSelector((s) => s.scheduling.assignments)
-  const instancesPage = useAppSelector((s) => s.scheduling.instancesPage)
-  const assignmentsPage = useAppSelector((s) => s.scheduling.assignmentsPage)
-  const statusInstancesPage = useAppSelector((s) => s.scheduling.status.instancesPage)
-  const statusAssignmentsPage = useAppSelector((s) => s.scheduling.status.assignmentsPage)
+  const patternAssignments = useAppSelector((s) => s.scheduling.patternAssignments)
+  const patternsPage = useAppSelector((s) => s.scheduling.patternsPage)
+  const patternAssignmentsPage = useAppSelector((s) => s.scheduling.patternAssignmentsPage)
+  const statusPatternsPage = useAppSelector((s) => s.scheduling.status.patternsPage)
+  const statusPatternAssignmentsPage = useAppSelector((s) => s.scheduling.status.patternAssignmentsPage)
 
   const [activeTab, setActiveTab] = React.useState<Tab>("shifts")
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 8,
   })
-  const [overrideTarget, setOverrideTarget] = React.useState<ShiftInstance | null>(null)
 
   React.useEffect(() => {
     dispatch(fetchPatterns())
-    dispatch(fetchInstances())
-    dispatch(fetchAssignments())
+    dispatch(fetchPatternAssignments())
   }, [dispatch])
 
   React.useEffect(() => {
     const params = { page: pagination.pageIndex + 1, pageSize: pagination.pageSize }
-    if (activeTab === "shifts") dispatch(fetchInstancesPage(params))
-    else dispatch(fetchAssignmentsPage(params))
+    if (activeTab === "shifts") dispatch(fetchPatternsPage(params))
+    else dispatch(fetchPatternAssignmentsPage(params))
   }, [dispatch, activeTab, pagination.pageIndex, pagination.pageSize])
 
-  const patternsById = React.useMemo(() => {
-    const map = new Map<string, ShiftPattern>()
-    for (const pattern of patterns) map.set(pattern.id, pattern)
-    return map
-  }, [patterns])
 
   const summaryCards = React.useMemo(
     () => [
-      { label: "Shifts", value: String(instances.length), sub: "upcoming shifts" },
-      { label: "Assignments", value: String(assignments.length), sub: "active assignments" },
+      { label: "Shift patterns", value: String(patterns.length), sub: "active schedule templates" },
+      { label: "Assignments", value: String(patternAssignments.length), sub: "pattern assignments" },
     ],
-    [instances.length, assignments.length],
+    [patterns.length, patternAssignments.length],
   )
 
-  const refreshInstances = () => {
-    dispatch(fetchInstances())
-    dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
-  }
-
-  const handleCancel = async (instance: ShiftInstance) => {
-    try {
-      await dispatch(cancelInstance(instance.id)).unwrap()
-      refreshInstances()
-    } catch (err) {
-      showApiErrorToast(err)
+  const assignedEmployeeCounts = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const assignment of patternAssignments) {
+      if (assignment.status !== ShiftAssignmentStatus.ACTIVE) continue
+      counts.set(assignment.shiftPatternId, (counts.get(assignment.shiftPatternId) ?? 0) + 1)
     }
-  }
+    return counts
+  }, [patternAssignments])
 
-  const instanceColumns: ColumnDef<ShiftInstance>[] = React.useMemo(
+
+  const patternColumns: ColumnDef<ShiftPattern>[] = React.useMemo(
     () => [
       {
-        accessorKey: "shiftDate",
-        header: "Date",
-        cell: ({ getValue }) => (
-          <span className="font-medium tabular-nums">{formatDateISO(getValue<string>())}</span>
+        accessorKey: "name",
+        header: "Pattern",
+        cell: ({ row }) => (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-medium">{row.original.name}</span>
+            <span className="text-[12px] text-muted-foreground">{daysLabel(row.original.daysOfWeek)}</span>
+          </div>
         ),
-        meta: { width: "10rem", cellClassName: "py-3" },
+        meta: { width: "18rem", cellClassName: "py-3" },
       },
       {
-        id: "shift",
-        header: "Shift",
+        id: "time",
+        header: "Time",
         cell: ({ row }) => (
           <span className="text-[13px] tabular-nums text-muted-foreground">
-            {formatTime(row.original.startAt)} – {formatTime(row.original.endAt)}
+            {row.original.startTime} – {row.original.endTime}
           </span>
         ),
         meta: { width: "12rem", cellClassName: "py-3" },
       },
       {
-        id: "pattern",
-        header: "Pattern",
-        cell: ({ row }) => {
-          const patternId = row.original.patternId
-          if (!patternId) return <span className="text-[13px] text-muted-foreground">—</span>
-          const pattern = patternsById.get(patternId)
-          if (!pattern) return <span className="text-[13px] text-muted-foreground">{shortId(patternId)}</span>
-          return (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[13px] font-medium">{pattern.name}</span>
-              <span className="text-[12px] text-muted-foreground">{daysLabel(pattern.daysOfWeek)}</span>
-            </div>
-          )
-        },
+        accessorKey: "effectiveFrom",
+        header: "Effective",
+        cell: ({ row }) => (
+          <span className="text-[13px] text-muted-foreground">
+            {formatDateISO(row.original.effectiveFrom)}{row.original.effectiveUntil ? ` – ${formatDateISO(row.original.effectiveUntil)}` : ""}
+          </span>
+        ),
         meta: { width: "16rem", cellClassName: "py-3" },
       },
       {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ getValue }) => {
-          const status = getValue<ShiftInstanceStatus>()
-          return (
-            <span
-              className={`inline-flex h-6 items-center border px-2 text-[13px] font-normal uppercase ${instanceStatusClass[status]}`}
-            >
-              {status}
-            </span>
-          )
-        },
-        meta: { width: "8rem", cellClassName: "py-3" },
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => {
-          const instance = row.original
-          if (instance.status === ShiftInstanceStatus.CANCELLED || instance.status === ShiftInstanceStatus.COMPLETED) {
-            return null
-          }
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-xs" aria-label="Row actions">
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setOverrideTarget(instance)}>
-                  Override times…
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleCancel(instance)}>
-                  Cancel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )
-        },
-        meta: { align: "right", width: "4rem", cellClassName: "py-3" },
+        id: "assignedEmployees",
+        header: "Assigned employees",
+        cell: ({ row }) => (
+          <span className="text-[13px] tabular-nums text-muted-foreground">
+            {assignedEmployeeCounts.get(row.original.id) ?? 0}
+          </span>
+        ),
+        meta: { align: "right", width: "10rem", cellClassName: "py-3" },
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patternsById],
+    [assignedEmployeeCounts],
   )
 
-  const assignmentColumns: ColumnDef<ShiftAssignment>[] = React.useMemo(
+  const assignmentColumns: ColumnDef<ShiftPatternAssignment>[] = React.useMemo(
     () => [
       {
         accessorKey: "id",
@@ -727,8 +581,8 @@ const Scheduling = () => {
         meta: { width: "8rem", cellClassName: "py-3" },
       },
       {
-        accessorKey: "shiftInstanceId",
-        header: "Shift",
+        accessorKey: "shiftPatternId",
+        header: "Shift pattern",
         cell: ({ getValue }) => (
           <span className="font-mono text-[13px] text-muted-foreground">{shortId(getValue<string>())}</span>
         ),
@@ -777,13 +631,13 @@ const Scheduling = () => {
 
   const isLoadingCurrent =
     activeTab === "shifts"
-      ? statusInstancesPage === "loading" && instancesPage.data.length === 0
-      : statusAssignmentsPage === "loading" && assignmentsPage.data.length === 0
+      ? statusPatternsPage === "loading" && patternsPage.data.length === 0
+      : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length === 0
 
   const isFetchingCurrent =
     activeTab === "shifts"
-      ? statusInstancesPage === "loading" && instancesPage.data.length > 0
-      : statusAssignmentsPage === "loading" && assignmentsPage.data.length > 0
+      ? statusPatternsPage === "loading" && patternsPage.data.length > 0
+      : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length > 0
 
   return (
     <SidebarProvider
@@ -842,30 +696,30 @@ const Scheduling = () => {
             {activeTab === "shifts" && (
               <DataTable
                 eyebrow="Scheduling"
-                title="Shifts"
-                columns={instanceColumns}
-                data={instancesPage.data}
-                tableClassName="min-w-[820px]"
+                title="Shift patterns"
+                columns={patternColumns}
+                data={patternsPage.data}
+                tableClassName="min-w-[720px]"
                 getRowId={(i) => i.id}
                 pagination={pagination}
                 paginationInfo={{
-                  page: instancesPage.page,
-                  pageSize: instancesPage.pageSize || pagination.pageSize,
-                  total: instancesPage.total,
+                  page: patternsPage.page,
+                  pageSize: patternsPage.pageSize || pagination.pageSize,
+                  total: patternsPage.total,
                 }}
                 onPaginationChange={setPagination}
-                rowCount={instancesPage.total}
+                rowCount={patternsPage.total}
                 pageSizeOptions={[8, 16, 32]}
                 syncPaginationFromInfo
                 isLoading={isLoadingCurrent}
                 isFetching={isFetchingCurrent}
-                emptyTitle="No shifts scheduled"
-                emptyDescription="Create a shift to schedule work for your team."
+                emptyTitle="No shift patterns"
+                emptyDescription="Create a shift pattern to schedule recurring work for your team."
                 actions={
                   <NewShiftDialog
                     onCreated={() => {
                       dispatch(fetchPatterns())
-                      refreshInstances()
+                      dispatch(fetchPatternsPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
                     }}
                   />
                 }
@@ -877,29 +731,29 @@ const Scheduling = () => {
                 eyebrow="Scheduling"
                 title="Shift assignments"
                 columns={assignmentColumns}
-                data={assignmentsPage.data}
+                data={patternAssignmentsPage.data}
                 tableClassName="min-w-[720px]"
                 getRowId={(a) => a.id}
                 pagination={pagination}
                 paginationInfo={{
-                  page: assignmentsPage.page,
-                  pageSize: assignmentsPage.pageSize || pagination.pageSize,
-                  total: assignmentsPage.total,
+                  page: patternAssignmentsPage.page,
+                  pageSize: patternAssignmentsPage.pageSize || pagination.pageSize,
+                  total: patternAssignmentsPage.total,
                 }}
                 onPaginationChange={setPagination}
-                rowCount={assignmentsPage.total}
+                rowCount={patternAssignmentsPage.total}
                 pageSizeOptions={[8, 16, 32]}
                 syncPaginationFromInfo
                 isLoading={isLoadingCurrent}
                 isFetching={isFetchingCurrent}
                 emptyTitle="No assignments yet"
-                emptyDescription="Assign employees to scheduled shifts to get started."
+                emptyDescription="Assign employees to shift patterns to get started."
                 actions={
                   <AssignEmployeeDialog
                     onCreated={() => {
-                      dispatch(fetchAssignments())
+                      dispatch(fetchPatternAssignments())
                       dispatch(
-                        fetchAssignmentsPage({
+                        fetchPatternAssignmentsPage({
                           page: pagination.pageIndex + 1,
                           pageSize: pagination.pageSize,
                         }),
@@ -910,17 +764,6 @@ const Scheduling = () => {
               />
             )}
 
-            <OverrideInstanceDialog
-              instance={overrideTarget}
-              open={overrideTarget !== null}
-              onOpenChange={(o) => {
-                if (!o) setOverrideTarget(null)
-              }}
-              onDone={() => {
-                refreshInstances()
-                setOverrideTarget(null)
-              }}
-            />
           </div>
         </div>
       </SidebarInset>

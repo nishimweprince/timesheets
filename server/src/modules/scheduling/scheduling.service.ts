@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Between, FindOptionsWhere, In, Repository } from "typeorm";
+import { Between, FindOptionsWhere, In, MoreThan, Repository } from "typeorm";
 import { DateTime } from "luxon";
 import { Frequency, RRule, Weekday, rrulestr } from "rrule";
 import { PaginatedResult, paginate } from "../../common/types/paginated-result";
@@ -118,6 +118,7 @@ export class SchedulingService {
       where: { id, organizationId: user.organizationId },
     });
     if (!pattern) throw new NotFoundException("Shift pattern not found");
+    const previousPattern = { ...pattern };
     if (dto.name !== undefined) pattern.name = dto.name;
     if (dto.startTime !== undefined) pattern.startTime = dto.startTime;
     if (dto.endTime !== undefined) pattern.endTime = dto.endTime;
@@ -148,7 +149,7 @@ export class SchedulingService {
     }
 
     const saved = await this.patterns.save(pattern);
-    if (saved.active) await this.materializeUpcoming(saved);
+    if (saved.active) await this.syncFutureGeneratedInstances(saved, previousPattern);
     return saved;
   }
 
@@ -487,6 +488,61 @@ export class SchedulingService {
       .values(rows)
       .orIgnore()
       .execute();
+  }
+
+  private async syncFutureGeneratedInstances(
+    pattern: ShiftPattern,
+    _previousPattern: Partial<ShiftPattern>,
+  ): Promise<void> {
+    const now = DateTime.utc();
+    const horizonEnd = now.startOf("day").plus({ days: MATERIALIZE_DAYS });
+    const patternUntil = pattern.effectiveUntil
+      ? DateTime.fromISO(pattern.effectiveUntil, { zone: "utc" }).endOf("day")
+      : null;
+    const expectedTo =
+      patternUntil && patternUntil < horizonEnd ? patternUntil : horizonEnd;
+    const expectedDates =
+      expectedTo > now
+        ? new Set(this.enumerateDates(pattern, now.startOf("day"), expectedTo))
+        : new Set<string>();
+
+    const futureScheduled = await this.instances.find({
+      where: {
+        organizationId: pattern.organizationId,
+        patternId: pattern.id,
+        status: ShiftInstanceStatus.SCHEDULED,
+        startAt: MoreThan(now.toJSDate()),
+      },
+      order: { startAt: "ASC" },
+    });
+
+    const existingByDate = new Map(
+      futureScheduled.map((instance) => [instance.shiftDate, instance]),
+    );
+    const changedInstances: ShiftInstance[] = [];
+
+    for (const shiftDate of expectedDates) {
+      const expected = this.buildInstanceForDate(pattern, shiftDate);
+      if (!expected) continue;
+      const existing = existingByDate.get(shiftDate);
+      if (existing) {
+        existing.startAt = expected.startAt;
+        existing.endAt = expected.endAt;
+        existing.workSiteId = expected.workSiteId;
+        changedInstances.push(existing);
+      } else {
+        changedInstances.push(this.instances.create(expected));
+      }
+    }
+
+    for (const instance of futureScheduled) {
+      if (!expectedDates.has(instance.shiftDate)) {
+        instance.status = ShiftInstanceStatus.CANCELLED;
+        changedInstances.push(instance);
+      }
+    }
+
+    if (changedInstances.length > 0) await this.instances.save(changedInstances);
   }
 
   private enumerateDates(

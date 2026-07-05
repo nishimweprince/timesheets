@@ -340,3 +340,118 @@ describe('SchedulingService pattern updates', () => {
     expect(afterEnd.status).toBe(ShiftInstanceStatus.CANCELLED);
   });
 });
+
+function makeResolveRepo(items: Record<string, unknown>[] = []) {
+  const matchesWhere = (item: Record<string, unknown>, where: Record<string, unknown>) =>
+    Object.entries(where).every(([key, value]) => {
+      const actual = item[key];
+      if (value && typeof value === 'object' && '_type' in value && (value as { _type: string })._type === 'between') {
+        const [from, to] = (value as unknown as { _value: Date[] })._value;
+        return actual instanceof Date && actual >= from && actual <= to;
+      }
+      if (value && typeof value === 'object' && '_value' in value) return (value as { _value: unknown[] })._value.includes(actual);
+      return actual === value;
+    });
+
+  return {
+    findOne: jest.fn(async ({ where }: { where: Record<string, unknown> }) => items.find((item) => matchesWhere(item, where)) ?? null),
+    find: jest.fn(async ({ where } = { where: {} as Record<string, unknown> }) => items.filter((item) => matchesWhere(item, where)))
+  };
+}
+
+function makeResolveService({
+  patterns = [],
+  instances = [],
+  assignments = [],
+  patternAssignments = []
+}: {
+  patterns?: Record<string, unknown>[];
+  instances?: Record<string, unknown>[];
+  assignments?: Record<string, unknown>[];
+  patternAssignments?: Record<string, unknown>[];
+} = {}) {
+  return new SchedulingService(
+    makeResolveRepo(patterns) as never,
+    makeResolveRepo(instances) as never,
+    makeResolveRepo(assignments) as never,
+    makeResolveRepo(patternAssignments) as never,
+    { findOne: jest.fn() } as never
+  );
+}
+
+describe('SchedulingService.resolveShift', () => {
+  const at = new Date('2026-07-05T09:00:00.000Z');
+  const pattern = { id: 'pattern-id', organizationId: orgId, active: true };
+  const patternAssignment = {
+    id: 'pattern-assignment-id',
+    organizationId: orgId,
+    employeeMembershipId: employeeId,
+    shiftPatternId: pattern.id,
+    status: ShiftPatternAssignmentStatus.ACTIVE
+  };
+  const instance = {
+    id: 'instance-id',
+    organizationId: orgId,
+    patternId: pattern.id,
+    startAt: new Date('2026-07-05T08:00:00.000Z'),
+    endAt: new Date('2026-07-05T16:00:00.000Z'),
+    status: ShiftInstanceStatus.SCHEDULED
+  };
+
+  it('resolves a selected valid pattern-assigned shift', async () => {
+    const result = await makeResolveService({ patterns: [pattern], instances: [instance], patternAssignments: [patternAssignment] }).resolveShift(
+      orgId,
+      employeeId,
+      at,
+      null,
+      instance.id,
+      patternAssignment.id
+    );
+
+    expect(result).toMatchObject({ patternAssignment, pattern, instance, resolutionType: 'MATCHED_ASSIGNED_SHIFT' });
+  });
+
+  it('does not resolve when selected instance does not match pattern assignment', async () => {
+    const otherInstance = { ...instance, id: 'other-instance-id', patternId: 'other-pattern-id' };
+    const result = await makeResolveService({ patterns: [pattern], instances: [otherInstance], patternAssignments: [patternAssignment] }).resolveShift(
+      orgId,
+      employeeId,
+      at,
+      null,
+      otherInstance.id,
+      patternAssignment.id
+    );
+
+    expect(result).toMatchObject({ patternAssignment: null, instance: null, resolutionType: 'UNASSIGNED_CLOCK_IN' });
+  });
+
+  it('does not resolve a selected cancelled instance', async () => {
+    const cancelled = { ...instance, status: ShiftInstanceStatus.CANCELLED };
+    const result = await makeResolveService({ patterns: [pattern], instances: [cancelled], patternAssignments: [patternAssignment] }).resolveShift(
+      orgId,
+      employeeId,
+      at,
+      null,
+      cancelled.id,
+      patternAssignment.id
+    );
+
+    expect(result).toMatchObject({ patternAssignment: null, instance: null, resolutionType: 'UNASSIGNED_CLOCK_IN' });
+  });
+
+  it('preserves unassigned generic clock-in behavior', async () => {
+    const result = await makeResolveService().resolveShift(orgId, employeeId, at);
+
+    expect(result).toMatchObject({ assignment: null, patternAssignment: null, pattern: null, instance: null, resolutionType: 'UNASSIGNED_CLOCK_IN' });
+  });
+
+  it('falls back to a nearby assigned pattern shift', async () => {
+    const result = await makeResolveService({ patterns: [pattern], instances: [instance], patternAssignments: [patternAssignment] }).resolveShift(
+      orgId,
+      employeeId,
+      at
+    );
+
+    expect(result).toMatchObject({ patternAssignment, pattern, instance, resolutionType: 'MATCHED_ASSIGNED_SHIFT' });
+  });
+});

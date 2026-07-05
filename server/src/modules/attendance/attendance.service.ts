@@ -92,14 +92,22 @@ export class AttendanceService {
       }
       if (dto.cameraEvidenceId) await this.mediaService.findForClock(user.organizationId, user.membershipId, dto.cameraEvidenceId);
 
-      const shift = await this.schedulingService.resolveShift(user.organizationId, user.membershipId, serverNow, dto.requestedShiftAssignmentId ?? null);
-      const policyResult = this.policiesService.policyResult(effectivePolicy.rules, { hasShift: Boolean(shift.pattern ?? shift.assignment) });
+      const shift = await this.schedulingService.resolveShift(
+        user.organizationId,
+        user.membershipId,
+        serverNow,
+        dto.requestedShiftAssignmentId ?? null,
+        dto.requestedShiftInstanceId ?? null,
+        dto.requestedShiftPatternAssignmentId ?? null
+      );
+      const policyResult = this.policiesService.policyResult(effectivePolicy.rules, { hasShift: Boolean(shift.patternAssignment ?? shift.assignment) });
       const policySnapshot = { policyId: effectivePolicy.policy?.id ?? null, rules: effectivePolicy.rules };
 
       const event = await manager.save(
         manager.create(AttendanceEvent, this.eventBase(user, request, dto, AttendanceEventType.CLOCK_IN, serverNow, policySnapshot, policyResult, {
           workSessionId: null,
           resolvedShiftAssignmentId: shift.assignment?.id ?? null,
+          resolvedShiftPatternAssignmentId: shift.patternAssignment?.id ?? null,
           resolvedShiftInstanceId: shift.instance?.id ?? null,
           resolvedShiftPatternId: shift.pattern?.id ?? shift.instance?.patternId ?? null,
           cameraRequired: effectivePolicy.rules.requireClockInPhoto
@@ -112,6 +120,7 @@ export class AttendanceService {
           employeeMembershipId: user.membershipId,
           plannedShiftAssignmentId: shift.assignment?.id ?? null,
           plannedShiftPatternId: shift.pattern?.id ?? shift.instance?.patternId ?? null,
+          plannedShiftPatternAssignmentId: shift.patternAssignment?.id ?? null,
           plannedShiftInstanceId: shift.instance?.id ?? null,
           status: WorkSessionStatus.OPEN,
           resolutionType: shift.resolutionType as ShiftResolutionType,
@@ -179,6 +188,7 @@ export class AttendanceService {
           plannedShiftInstanceId: session.plannedShiftInstanceId,
           plannedShiftAssignmentId: session.plannedShiftAssignmentId,
           plannedShiftPatternId: session.plannedShiftPatternId,
+          plannedShiftPatternAssignmentId: session.plannedShiftPatternAssignmentId,
           scheduledStartAt: shift.instance?.startAt ?? null,
           scheduledEndAt: shift.instance?.endAt ?? null
         },
@@ -220,6 +230,7 @@ export class AttendanceService {
           workSessionId: session.id,
           cameraRequired: effectivePolicy.rules.requireClockOutPhoto,
           resolvedShiftAssignmentId: session.plannedShiftAssignmentId,
+          resolvedShiftPatternAssignmentId: session.plannedShiftPatternAssignmentId,
           resolvedShiftInstanceId: session.plannedShiftInstanceId,
           resolvedShiftPatternId: session.plannedShiftPatternId
         }))
@@ -298,6 +309,8 @@ export class AttendanceService {
       failureCodes,
       failureReason,
       requestedShiftAssignmentId: dto.requestedShiftAssignmentId ?? null,
+      requestedShiftInstanceId: dto.requestedShiftInstanceId ?? null,
+      requestedShiftPatternAssignmentId: dto.requestedShiftPatternAssignmentId ?? null,
       requestContext: { ip: request.ip, userAgent: request.header('user-agent'), device: dto.device ?? null },
       policyResult: null,
       createdById: user.userId
@@ -326,6 +339,8 @@ export class AttendanceService {
       clientUtcOffsetMinutes: dto.clientUtcOffsetMinutes ?? null,
       clientServerTimeDeltaSeconds: clientDate ? Math.round((clientDate.getTime() - serverReceivedAt.getTime()) / 1000) : null,
       requestedShiftAssignmentId: dto.requestedShiftAssignmentId ?? null,
+      requestedShiftInstanceId: dto.requestedShiftInstanceId ?? null,
+      requestedShiftPatternAssignmentId: dto.requestedShiftPatternAssignmentId ?? null,
       locationPoint: dto.location ? { type: 'Point', coordinates: [dto.location.longitude, dto.location.latitude] } : null,
       locationAccuracyMeters: dto.location?.accuracyMeters ?? null,
       locationSource: dto.location?.source ?? null,

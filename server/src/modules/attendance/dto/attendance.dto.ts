@@ -43,6 +43,14 @@ export class ClockDto {
   requestedShiftAssignmentId?: string;
 
   @IsOptional()
+  @IsUUID()
+  requestedShiftInstanceId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  requestedShiftPatternAssignmentId?: string;
+
+  @IsOptional()
   @IsDateString()
   clientReportedAt?: string;
 

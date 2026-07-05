@@ -37,6 +37,9 @@ export class WorkSession extends TenantBaseDomain {
   @Column({ name: 'planned_shift_pattern_id', type: 'uuid', nullable: true })
   plannedShiftPatternId: string | null;
 
+  @Column({ name: 'planned_shift_pattern_assignment_id', type: 'uuid', nullable: true })
+  plannedShiftPatternAssignmentId: string | null;
+
   @Column({ type: 'enum', enum: WorkSessionStatus, default: WorkSessionStatus.OPEN })
   status: WorkSessionStatus;
 

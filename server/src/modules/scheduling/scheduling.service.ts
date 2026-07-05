@@ -249,19 +249,45 @@ export class SchedulingService {
       organizationId: user.organizationId,
     };
     if (query.patternId) where.patternId = query.patternId;
-    if (query.from && query.to)
-      where.shiftDate = Between(query.from, query.to) as unknown as string;
-    else if (query.from)
-      where.shiftDate = Between(query.from, "9999-12-31") as unknown as string;
-    else if (query.to)
-      where.shiftDate = Between("0001-01-01", query.to) as unknown as string;
+    if (query.statuses) {
+      const statuses = query.statuses
+        .split(',')
+        .map((status) => status.trim())
+        .filter((status): status is ShiftInstanceStatus =>
+          Object.values(ShiftInstanceStatus).includes(status as ShiftInstanceStatus)
+        );
+      if (statuses.length > 0) where.status = In(statuses);
+    }
+    if (query.from && query.to) where.shiftDate = Between(query.from, query.to) as unknown as string;
+    else if (query.from) where.shiftDate = Between(query.from, '9999-12-31') as unknown as string;
+    else if (query.to) where.shiftDate = Between('0001-01-01', query.to) as unknown as string;
     const [data, total] = await this.instances.findAndCount({
       where,
-      order: { startAt: "DESC" },
+      order: { startAt: 'ASC' },
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
-    return paginate(data, total, page, pageSize);
+    if (data.length === 0) return paginate(data, total, page, pageSize);
+
+    const assignmentRows = await this.assignments.find({
+      where: {
+        organizationId: user.organizationId,
+        shiftInstanceId: In(data.map((instance) => instance.id))
+      },
+      order: { createdAt: 'ASC' }
+    });
+    const assignmentsByInstance = new Map<string, ShiftAssignment[]>();
+    for (const assignment of assignmentRows) {
+      const existing = assignmentsByInstance.get(assignment.shiftInstanceId) ?? [];
+      existing.push(assignment);
+      assignmentsByInstance.set(assignment.shiftInstanceId, existing);
+    }
+    const enriched = data.map((instance) =>
+      Object.assign(instance, {
+        assignments: assignmentsByInstance.get(instance.id) ?? []
+      })
+    );
+    return paginate(enriched, total, page, pageSize);
   }
 
   // Legacy instance-level assignments. New scheduling should assign employees at the

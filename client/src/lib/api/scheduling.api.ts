@@ -45,6 +45,7 @@ export interface ShiftInstance {
   endAt: string
   status: ShiftInstanceStatus
   createdAt: string
+  assignments?: ShiftAssignment[]
 }
 
 export const ShiftAssignmentStatus = {
@@ -148,6 +149,7 @@ export interface ShiftInstanceQueryParams extends PaginationParams {
   from?: string
   to?: string
   patternId?: string
+  statuses?: string
 }
 
 export const schedulingApi = {

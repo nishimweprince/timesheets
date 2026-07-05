@@ -2,7 +2,10 @@
 
 import * as React from "react"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
+import { Calendar, Views, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
 import { MoreHorizontal } from "lucide-react"
+import "react-big-calendar/lib/css/react-big-calendar.css"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
@@ -137,7 +140,9 @@ const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
 
 // --- Tab types ---
 
-type Tab = "shifts" | "assignments"
+type Tab = "patterns" | "assignments" | "calendar"
+
+const calendarLocalizer = momentLocalizer(moment)
 
 // --- Create shift dialog ---
 
@@ -377,15 +382,42 @@ function OverrideInstanceDialog({
   onOpenChange: (open: boolean) => void
   onDone: () => void
 }) {
+  if (!instance) return null
+
+  return (
+    <Modal
+      isOpen={open}
+      onClose={() => onOpenChange(false)}
+      heading="Override shift times"
+      className="sm:min-w-0 sm:max-w-sm"
+    >
+      <OverrideInstanceForm
+        key={instance.id}
+        instance={instance}
+        onOpenChange={onOpenChange}
+        onDone={onDone}
+      />
+    </Modal>
+  )
+}
+
+function OverrideInstanceForm({
+  instance,
+  onOpenChange,
+  onDone,
+}: {
+  instance: ShiftInstance
+  onOpenChange: (open: boolean) => void
+  onDone: () => void
+}) {
   const dispatch = useAppDispatch()
   const isLoading = useAppSelector((s) => s.scheduling.status.overrideInstance === "loading")
+  const [startAt, setStartAt] = React.useState(() => toLocalDatetime(instance.startAt))
+  const [endAt, setEndAt] = React.useState(() => toLocalDatetime(instance.endAt))
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!instance) return
-    const formData = new FormData(e.currentTarget)
-    const startAt = String(formData.get("startAt") ?? "")
-    const endAt = String(formData.get("endAt") ?? "")
     try {
       await dispatch(
         overrideInstance({
@@ -403,41 +435,32 @@ function OverrideInstanceDialog({
     }
   }
 
-  if (!instance) return null
-
   return (
-    <Modal
-      isOpen={open}
-      onClose={() => onOpenChange(false)}
-      heading="Override shift times"
-      className="sm:min-w-0 sm:max-w-sm"
-    >
-      <form key={instance.id} onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Start</Label>
-          <Input
-            required
-            name="startAt"
-            type="datetime-local"
-            defaultValue={toLocalDatetime(instance.startAt)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">End</Label>
-          <Input
-            required
-            name="endAt"
-            type="datetime-local"
-            defaultValue={toLocalDatetime(instance.endAt)}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={isLoading}>
-            {isLoading ? "Saving…" : "Save changes"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[13px]">Start</Label>
+        <Input
+          required
+          type="datetime-local"
+          value={startAt}
+          onChange={(e) => setStartAt(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[13px]">End</Label>
+        <Input
+          required
+          type="datetime-local"
+          value={endAt}
+          onChange={(e) => setEndAt(e.target.value)}
+        />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" size="sm" disabled={isLoading}>
+          {isLoading ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -592,9 +615,154 @@ function AssignEmployeeDialog({ onCreated }: { onCreated: () => void }) {
 // --- Main page ---
 
 const tabItems: { key: Tab; label: string }[] = [
-  { key: "shifts", label: "Shifts" },
+  { key: "patterns", label: "Patterns" },
   { key: "assignments", label: "Assignments" },
+  { key: "calendar", label: "Calendar" },
 ]
+
+type CalendarEvent = {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  instance: ShiftInstance
+  assignmentSummary: string
+}
+
+function CalendarTab({
+  instances,
+  patternAssignments,
+  onRangeChange,
+  onSelectInstance,
+  includeCancelled,
+  includeCompleted,
+  onToggleCancelled,
+  onToggleCompleted,
+}: {
+  instances: ShiftInstance[]
+  patternAssignments: ShiftPatternAssignment[]
+  onRangeChange: (from: string, to: string) => void
+  onSelectInstance: (instance: ShiftInstance) => void
+  includeCancelled: boolean
+  includeCompleted: boolean
+  onToggleCancelled: (checked: boolean) => void
+  onToggleCompleted: (checked: boolean) => void
+}) {
+  const employees = useAppSelector((s) => s.employeeManagement.employees)
+  const employeeByMembershipId = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const employee of employees) map.set(employee.membershipId, employeeName(employee))
+    return map
+  }, [employees])
+
+  const assignmentsByPatternId = React.useMemo(() => {
+    const map = new Map<string, ShiftPatternAssignment[]>()
+    for (const assignment of patternAssignments) {
+      if (assignment.status !== ShiftAssignmentStatus.ACTIVE) continue
+      const existing = map.get(assignment.shiftPatternId) ?? []
+      existing.push(assignment)
+      map.set(assignment.shiftPatternId, existing)
+    }
+    return map
+  }, [patternAssignments])
+
+  const events = React.useMemo<CalendarEvent[]>(
+    () =>
+      instances.map((instance) => {
+        const activeAssignments = instance.patternId
+          ? assignmentsByPatternId.get(instance.patternId) ?? []
+          : []
+        const names = activeAssignments.map(
+          (assignment) => employeeByMembershipId.get(assignment.employeeMembershipId) ?? shortId(assignment.employeeMembershipId),
+        )
+        const assignmentSummary =
+          names.length === 0
+            ? "Unassigned"
+            : names.length === 1
+              ? names[0]
+              : `${names[0]} +${names.length - 1}`
+        return {
+          id: instance.id,
+          title: assignmentSummary,
+          start: new Date(instance.startAt),
+          end: new Date(instance.endAt),
+          instance,
+          assignmentSummary,
+        }
+      }),
+    [assignmentsByPatternId, employeeByMembershipId, instances],
+  )
+
+  const handleRangeChange = React.useCallback(
+    (range: Date[] | { start: Date; end: Date }) => {
+      const dates = Array.isArray(range) ? range : [range.start, range.end]
+      const from = new Date(Math.min(...dates.map((date) => date.getTime())))
+      const to = new Date(Math.max(...dates.map((date) => date.getTime())))
+      onRangeChange(toIsoDate(from), toIsoDate(to))
+    },
+    [onRangeChange],
+  )
+
+  return (
+    <Card>
+      <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardDescription className="text-[13px] uppercase tracking-[0.12em]">Scheduling</CardDescription>
+          <CardTitle>Calendar</CardTitle>
+        </div>
+        <div className="flex flex-wrap gap-3 text-[13px] text-muted-foreground">
+          <label className="inline-flex items-center gap-2">
+            <input type="checkbox" checked={includeCancelled} onChange={(e) => onToggleCancelled(e.target.checked)} />
+            Show cancelled
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input type="checkbox" checked={includeCompleted} onChange={(e) => onToggleCompleted(e.target.checked)} />
+            Show completed
+          </label>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[680px] rounded-md border border-border bg-background p-2">
+          <Calendar<CalendarEvent>
+            localizer={calendarLocalizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            titleAccessor="title"
+            views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+            defaultView={Views.WEEK}
+            popup
+            onRangeChange={handleRangeChange}
+            onSelectEvent={(event) => onSelectInstance(event.instance)}
+            components={{
+              event: ({ event }) => (
+                <div className="truncate">
+                  <span className="font-medium">{event.assignmentSummary}</span>
+                  <span className="ml-1 opacity-80">· {event.instance.status}</span>
+                </div>
+              ),
+            }}
+            eventPropGetter={(event) => ({
+              className: event.assignmentSummary !== "Unassigned"
+                ? "border border-primary/20"
+                : "border border-warning/30",
+              style: {
+                backgroundColor:
+                  event.instance.status === ShiftInstanceStatus.CANCELLED
+                    ? "hsl(var(--muted))"
+                    : event.instance.status === ShiftInstanceStatus.COMPLETED
+                      ? "hsl(var(--primary))"
+                      : event.assignmentSummary !== "Unassigned"
+                        ? "hsl(var(--success))"
+                        : "hsl(var(--warning))",
+              },
+            })}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 const Scheduling = () => {
   const dispatch = useAppDispatch()
@@ -607,24 +775,54 @@ const Scheduling = () => {
   const statusInstancesPage = useAppSelector((s) => s.scheduling.status.instancesPage)
   const statusPatternAssignmentsPage = useAppSelector((s) => s.scheduling.status.patternAssignmentsPage)
 
-  const [activeTab, setActiveTab] = React.useState<Tab>("shifts")
+  const [activeTab, setActiveTab] = React.useState<Tab>("patterns")
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 8,
   })
   const [overrideTarget, setOverrideTarget] = React.useState<ShiftInstance | null>(null)
+  const [calendarRange, setCalendarRange] = React.useState(() => {
+    const today = new Date()
+    const from = new Date(today)
+    from.setDate(today.getDate() - 7)
+    const to = new Date(today)
+    to.setDate(today.getDate() + 35)
+    return { from: toIsoDate(from), to: toIsoDate(to) }
+  })
+  const [includeCancelled, setIncludeCancelled] = React.useState(false)
+  const [includeCompleted, setIncludeCompleted] = React.useState(false)
 
   React.useEffect(() => {
     dispatch(fetchPatterns())
-    dispatch(fetchInstances())
     dispatch(fetchPatternAssignments())
+    dispatch(fetchInstances({ statuses: [ShiftInstanceStatus.SCHEDULED, ShiftInstanceStatus.MODIFIED].join(",") }))
+    dispatch(fetchEmployees())
   }, [dispatch])
 
   React.useEffect(() => {
     const params = { page: pagination.pageIndex + 1, pageSize: pagination.pageSize }
-    if (activeTab === "shifts") dispatch(fetchInstancesPage(params))
-    else dispatch(fetchPatternAssignmentsPage(params))
+    if (activeTab === "patterns") dispatch(fetchInstancesPage(params))
+    else if (activeTab === "assignments") dispatch(fetchPatternAssignmentsPage(params))
   }, [dispatch, activeTab, pagination.pageIndex, pagination.pageSize])
+
+  const calendarStatuses = React.useMemo(() => {
+    const statuses: ShiftInstanceStatus[] = [ShiftInstanceStatus.SCHEDULED, ShiftInstanceStatus.MODIFIED]
+    if (includeCancelled) statuses.push(ShiftInstanceStatus.CANCELLED)
+    if (includeCompleted) statuses.push(ShiftInstanceStatus.COMPLETED)
+    return statuses.join(",")
+  }, [includeCancelled, includeCompleted])
+
+  React.useEffect(() => {
+    if (activeTab !== "calendar") return
+    dispatch(
+      fetchInstances({
+        from: calendarRange.from,
+        to: calendarRange.to,
+        statuses: calendarStatuses,
+        pageSize: 500,
+      }),
+    )
+  }, [activeTab, calendarRange.from, calendarRange.to, calendarStatuses, dispatch])
 
   const patternsById = React.useMemo(() => {
     const map = new Map<string, ShiftPattern>()
@@ -643,10 +841,10 @@ const Scheduling = () => {
 
   const summaryCards = React.useMemo(
     () => [
-      { label: "Shifts", value: String(instances.length), sub: "upcoming shifts" },
+      { label: "Patterns", value: String(patterns.length), sub: "shift patterns" },
       { label: "Assignments", value: String(patternAssignments.length), sub: "pattern assignments" },
     ],
-    [instances.length, patternAssignments.length],
+    [patterns.length, patternAssignments.length],
   )
 
   const refreshInstances = () => {
@@ -810,12 +1008,12 @@ const Scheduling = () => {
   )
 
   const isLoadingCurrent =
-    activeTab === "shifts"
+    activeTab === "patterns"
       ? statusInstancesPage === "loading" && instancesPage.data.length === 0
       : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length === 0
 
   const isFetchingCurrent =
-    activeTab === "shifts"
+    activeTab === "patterns"
       ? statusInstancesPage === "loading" && instancesPage.data.length > 0
       : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length > 0
 
@@ -873,10 +1071,10 @@ const Scheduling = () => {
               ))}
             </div>
 
-            {activeTab === "shifts" && (
+            {activeTab === "patterns" && (
               <DataTable
                 eyebrow="Scheduling"
-                title="Shifts"
+                title="Generated instances"
                 columns={instanceColumns}
                 data={instancesPage.data}
                 tableClassName="min-w-[820px]"
@@ -893,7 +1091,7 @@ const Scheduling = () => {
                 syncPaginationFromInfo
                 isLoading={isLoadingCurrent}
                 isFetching={isFetchingCurrent}
-                emptyTitle="No shifts scheduled"
+                emptyTitle="No generated instances"
                 emptyDescription="Create a shift to schedule work for your team."
                 actions={
                   <NewShiftDialog
@@ -941,6 +1139,19 @@ const Scheduling = () => {
                     }}
                   />
                 }
+              />
+            )}
+
+            {activeTab === "calendar" && (
+              <CalendarTab
+                instances={instances}
+                patternAssignments={patternAssignments}
+                onRangeChange={(from, to) => setCalendarRange({ from, to })}
+                onSelectInstance={setOverrideTarget}
+                includeCancelled={includeCancelled}
+                includeCompleted={includeCompleted}
+                onToggleCancelled={setIncludeCancelled}
+                onToggleCompleted={setIncludeCompleted}
               />
             )}
 

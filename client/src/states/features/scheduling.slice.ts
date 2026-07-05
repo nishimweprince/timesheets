@@ -4,6 +4,7 @@ import {
   type CreateShiftAssignmentPayload,
   type CreateShiftInstancePayload,
   type CreateShiftPatternPayload,
+  type MyShift,
   type OverrideShiftInstancePayload,
   type ShiftAssignment,
   type ShiftInstance,
@@ -23,6 +24,7 @@ interface SchedulingState {
   patterns: ShiftPattern[]
   instances: ShiftInstance[]
   assignments: ShiftAssignment[]
+  myShifts: MyShift[]
   patternsPage: PaginatedResult<ShiftPattern>
   instancesPage: PaginatedResult<ShiftInstance>
   assignmentsPage: PaginatedResult<ShiftAssignment>
@@ -35,6 +37,7 @@ interface SchedulingState {
     patterns: LoadStatus
     instances: LoadStatus
     assignments: LoadStatus
+    myShifts: LoadStatus
     patternsPage: LoadStatus
     instancesPage: LoadStatus
     assignmentsPage: LoadStatus
@@ -52,6 +55,7 @@ const initialState: SchedulingState = {
   patterns: [],
   instances: [],
   assignments: [],
+  myShifts: [],
   patternsPage: emptyPage(),
   instancesPage: emptyPage(),
   assignmentsPage: emptyPage(),
@@ -60,6 +64,7 @@ const initialState: SchedulingState = {
     patterns: 'idle',
     instances: 'idle',
     assignments: 'idle',
+    myShifts: 'idle',
     patternsPage: 'idle',
     instancesPage: 'idle',
     assignmentsPage: 'idle',
@@ -90,6 +95,14 @@ export const fetchAssignments = createAsyncThunk('scheduling/fetchAssignments', 
   const result = await schedulingApi.assignments({ page: 1, pageSize: LOOKUP_PAGE_SIZE })
   return result.data
 })
+
+export const fetchMyShifts = createAsyncThunk(
+  'scheduling/fetchMyShifts',
+  async (params?: ShiftInstanceQueryParams) => {
+    const result = await schedulingApi.myShifts({ page: 1, pageSize: LOOKUP_PAGE_SIZE, ...params })
+    return result.data
+  }
+)
 
 export const fetchPatternsPage = createAsyncThunk(
   'scheduling/fetchPatternsPage',
@@ -167,6 +180,13 @@ const schedulingSlice = createSlice({
         state.assignments = action.payload
       })
       .addCase(fetchAssignments.rejected, (state) => { state.status.assignments = 'error' })
+
+      .addCase(fetchMyShifts.pending, (state) => { state.status.myShifts = 'loading' })
+      .addCase(fetchMyShifts.fulfilled, (state, action) => {
+        state.status.myShifts = 'idle'
+        state.myShifts = action.payload
+      })
+      .addCase(fetchMyShifts.rejected, (state) => { state.status.myShifts = 'error' })
 
       .addCase(fetchPatternsPage.pending, (state, action) => {
         state.status.patternsPage = 'loading'

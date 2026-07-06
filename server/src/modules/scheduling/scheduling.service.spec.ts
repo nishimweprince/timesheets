@@ -24,7 +24,7 @@ function makeAssignment(patternId: string, membershipId = employeeId): ShiftPatt
     id: `${patternId}-${membershipId}`,
     organizationId: orgId,
     employeeMembershipId: membershipId,
-    patternId,
+    shiftPatternId: patternId,
     status: ShiftPatternAssignmentStatus.ACTIVE
   } as ShiftPatternAssignment;
 }

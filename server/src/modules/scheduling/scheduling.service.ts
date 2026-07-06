@@ -30,9 +30,11 @@ import {
   CreateShiftInstanceDto,
   CreateShiftPatternAssignmentDto,
   CreateShiftPatternDto,
+  ListShiftPatternAssignmentsQueryDto,
   ListSchedulingQueryDto,
   OverrideShiftInstanceDto,
   ScheduleDateRangeQueryDto,
+  UpdateShiftPatternAssignmentDto,
   UpdateShiftPatternDto,
 } from "./dto/scheduling.dto";
 
@@ -257,7 +259,9 @@ export class SchedulingService {
     return paginate(data, total, page, pageSize);
   }
 
-  // Assignments
+  // Legacy instance-level assignments. New scheduling should assign employees at the
+  // shift pattern level so attendance resolution can bind a pattern assignment and
+  // the concrete materialized instance without creating shift_assignments rows.
 
   async assign(
     user: RequestUser,
@@ -276,18 +280,62 @@ export class SchedulingService {
     );
   }
 
+  async findPatternAssignments(
+    user: RequestUser,
+    query: ListShiftPatternAssignmentsQueryDto,
+  ): Promise<PaginatedResult<ShiftPatternAssignment>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const where: FindOptionsWhere<ShiftPatternAssignment> = {
+      organizationId: user.organizationId,
+    };
+    if (query.shiftPatternId) where.shiftPatternId = query.shiftPatternId;
+    if (query.employeeMembershipId) where.employeeMembershipId = query.employeeMembershipId;
+    if (query.status) where.status = query.status;
+    const [data, total] = await this.patternAssignments.findAndCount({
+      where,
+      order: { createdAt: "DESC" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    return paginate(data, total, page, pageSize);
+  }
+
   async assignPattern(user: RequestUser, dto: CreateShiftPatternAssignmentDto): Promise<ShiftPatternAssignment> {
     const pattern = await this.patterns.findOne({
-      where: { id: dto.patternId, organizationId: user.organizationId }
+      where: { id: dto.shiftPatternId, organizationId: user.organizationId }
     });
     if (!pattern) throw new NotFoundException('Shift pattern not found');
     return this.patternAssignments.save(
       this.patternAssignments.create({
         organizationId: user.organizationId,
         employeeMembershipId: dto.employeeMembershipId,
-        patternId: dto.patternId
+        shiftPatternId: dto.shiftPatternId,
+        effectiveFrom: dto.effectiveFrom ?? null,
+        effectiveUntil: dto.effectiveUntil ?? null,
       })
     );
+  }
+
+  async updatePatternAssignment(
+    user: RequestUser,
+    id: string,
+    dto: UpdateShiftPatternAssignmentDto,
+  ): Promise<ShiftPatternAssignment> {
+    const assignment = await this.patternAssignments.findOne({
+      where: { id, organizationId: user.organizationId },
+    });
+    if (!assignment) throw new NotFoundException("Shift pattern assignment not found");
+    if (dto.status !== undefined) assignment.status = dto.status;
+    if (dto.effectiveFrom !== undefined) assignment.effectiveFrom = dto.effectiveFrom ?? null;
+    if (dto.effectiveUntil !== undefined) assignment.effectiveUntil = dto.effectiveUntil ?? null;
+    return this.patternAssignments.save(assignment);
+  }
+
+  async cancelPatternAssignment(user: RequestUser, id: string): Promise<ShiftPatternAssignment> {
+    return this.updatePatternAssignment(user, id, {
+      status: ShiftPatternAssignmentStatus.CANCELLED,
+    });
   }
 
   async findMyShifts(user: RequestUser, query: ScheduleDateRangeQueryDto): Promise<PatternDerivedShift[]> {
@@ -298,7 +346,7 @@ export class SchedulingService {
         status: ShiftPatternAssignmentStatus.ACTIVE
       }
     });
-    const patternIds = Array.from(new Set(assignments.map((assignment) => assignment.patternId)));
+    const patternIds = Array.from(new Set(assignments.map((assignment) => assignment.shiftPatternId)));
     if (patternIds.length === 0) return [];
 
     const patterns = await this.patterns.find({
@@ -528,7 +576,8 @@ export class SchedulingService {
     };
   }
 
-  // Clock-in resolution (unchanged surface)
+  // Clock-in resolution prefers pattern-level assignment plus instance id, then
+  // falls back to legacy instance-level shift_assignments for historical data.
 
   async resolveShift(
     organizationId: string,
@@ -537,6 +586,7 @@ export class SchedulingService {
     requestedAssignmentId?: string | null,
   ): Promise<{
     assignment: ShiftAssignment | null;
+    pattern: ShiftPattern | null;
     instance: ShiftInstance | null;
     resolutionType: string;
   }> {
@@ -563,6 +613,7 @@ export class SchedulingService {
         if (instance)
           return {
             assignment,
+            pattern: null,
             instance,
             resolutionType: "MATCHED_ALTERNATIVE_ASSIGNED_SHIFT",
           };
@@ -586,10 +637,42 @@ export class SchedulingService {
     if (instanceIds.length === 0)
       return {
         assignment: null,
+        pattern: null,
         instance: null,
         resolutionType: "UNASSIGNED_CLOCK_IN",
       };
 
+    const patternIds = candidateInstances.map((instance) => instance.patternId).filter((id): id is string => Boolean(id));
+    if (patternIds.length > 0) {
+      const patternAssignments = await this.patternAssignments.find({
+        where: {
+          organizationId,
+          employeeMembershipId,
+          shiftPatternId: In(patternIds),
+          status: ShiftPatternAssignmentStatus.ACTIVE,
+        },
+      });
+      const assignedPatternIds = patternAssignments.map((assignment) => assignment.shiftPatternId);
+      const patterns = assignedPatternIds.length > 0
+        ? await this.patterns.find({
+            where: { id: In(assignedPatternIds), organizationId, active: true },
+          })
+        : [];
+      const patternIdSet = new Set(patterns.map((pattern) => pattern.id));
+      const instance = candidateInstances.find((item) => item.patternId && patternIdSet.has(item.patternId));
+      const pattern = instance?.patternId ? patterns.find((item) => item.id === instance.patternId) ?? null : null;
+      if (instance && pattern) {
+        const insideWindow = at >= instance.startAt && at <= instance.endAt;
+        return {
+          assignment: null,
+          pattern,
+          instance,
+          resolutionType: insideWindow ? 'MATCHED_ASSIGNED_SHIFT' : 'MATCHED_OUTSIDE_ALLOWED_WINDOW'
+        };
+      }
+    }
+
+    // Backwards-compatibility fallback for historical shift_assignments rows.
     const assignments = await this.assignments.find({
       where: {
         organizationId,
@@ -608,12 +691,14 @@ export class SchedulingService {
     if (!assignment || !instance)
       return {
         assignment: null,
+        pattern: null,
         instance: null,
         resolutionType: "UNASSIGNED_CLOCK_IN",
       };
     const insideWindow = at >= instance.startAt && at <= instance.endAt;
     return {
       assignment,
+      pattern: null,
       instance,
       resolutionType: insideWindow
         ? "MATCHED_ASSIGNED_SHIFT"

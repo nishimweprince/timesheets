@@ -19,6 +19,7 @@ export interface WorkSession {
   employeeMembershipId: string
   plannedShiftInstanceId: string | null
   plannedShiftAssignmentId: string | null
+  plannedShiftPatternId: string | null
   status: WorkSessionStatus
   resolutionType: string
   reviewStatus: string

@@ -93,7 +93,7 @@ export class AttendanceService {
       if (dto.cameraEvidenceId) await this.mediaService.findForClock(user.organizationId, user.membershipId, dto.cameraEvidenceId);
 
       const shift = await this.schedulingService.resolveShift(user.organizationId, user.membershipId, serverNow, dto.requestedShiftAssignmentId ?? null);
-      const policyResult = this.policiesService.policyResult(effectivePolicy.rules, { hasShift: Boolean(shift.assignment) });
+      const policyResult = this.policiesService.policyResult(effectivePolicy.rules, { hasShift: Boolean(shift.pattern ?? shift.assignment) });
       const policySnapshot = { policyId: effectivePolicy.policy?.id ?? null, rules: effectivePolicy.rules };
 
       const event = await manager.save(
@@ -101,6 +101,7 @@ export class AttendanceService {
           workSessionId: null,
           resolvedShiftAssignmentId: shift.assignment?.id ?? null,
           resolvedShiftInstanceId: shift.instance?.id ?? null,
+          resolvedShiftPatternId: shift.pattern?.id ?? shift.instance?.patternId ?? null,
           cameraRequired: effectivePolicy.rules.requireClockInPhoto
         }))
       );
@@ -110,6 +111,7 @@ export class AttendanceService {
           organizationId: user.organizationId,
           employeeMembershipId: user.membershipId,
           plannedShiftAssignmentId: shift.assignment?.id ?? null,
+          plannedShiftPatternId: shift.pattern?.id ?? shift.instance?.patternId ?? null,
           plannedShiftInstanceId: shift.instance?.id ?? null,
           status: WorkSessionStatus.OPEN,
           resolutionType: shift.resolutionType as ShiftResolutionType,
@@ -176,6 +178,7 @@ export class AttendanceService {
           type: session.resolutionType,
           plannedShiftInstanceId: session.plannedShiftInstanceId,
           plannedShiftAssignmentId: session.plannedShiftAssignmentId,
+          plannedShiftPatternId: session.plannedShiftPatternId,
           scheduledStartAt: shift.instance?.startAt ?? null,
           scheduledEndAt: shift.instance?.endAt ?? null
         },
@@ -217,7 +220,8 @@ export class AttendanceService {
           workSessionId: session.id,
           cameraRequired: effectivePolicy.rules.requireClockOutPhoto,
           resolvedShiftAssignmentId: session.plannedShiftAssignmentId,
-          resolvedShiftInstanceId: session.plannedShiftInstanceId
+          resolvedShiftInstanceId: session.plannedShiftInstanceId,
+          resolvedShiftPatternId: session.plannedShiftPatternId
         }))
       );
       session.actualClockOutAt = serverNow;

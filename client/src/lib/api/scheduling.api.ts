@@ -16,6 +16,7 @@ export interface ShiftPattern {
   startTime: string
   endTime: string
   workSiteId: string | null
+  assignedEmployeeMembershipId: string | null
   rrule: string | null
   freq: ShiftPatternFreq | null
   daysOfWeek: number[]
@@ -84,6 +85,7 @@ export interface CreateShiftPatternPayload {
   freq?: ShiftPatternFreq
   timezone?: string
   workSiteId?: string
+  assignedEmployeeMembershipId?: string
 }
 
 export interface UpdateShiftPatternPayload {
@@ -96,6 +98,7 @@ export interface UpdateShiftPatternPayload {
   freq?: ShiftPatternFreq
   timezone?: string
   workSiteId?: string
+  assignedEmployeeMembershipId?: string
   active?: boolean
 }
 
@@ -188,6 +191,7 @@ export const schedulingApi = {
     return apiRequest<PaginatedResult<ShiftAssignment>>(`/shift-assignments${toQueryString({ ...params })}`)
   },
 
+  /** Legacy/internal: retained for historical instance-level assignment records only. */
   createAssignment(body: CreateShiftAssignmentPayload): Promise<ShiftAssignment> {
     return apiRequest<ShiftAssignment>('/shift-assignments', { method: 'POST', body })
   },

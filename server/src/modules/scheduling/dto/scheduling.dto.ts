@@ -16,6 +16,7 @@ import {
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { ShiftPatternFreq } from '../entities/shift-pattern.entity';
 import { ShiftInstanceStatus } from '../entities/shift-instance.entity';
+import { ShiftPatternAssignmentStatus } from '../entities/shift-pattern-assignment.entity';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -59,6 +60,10 @@ export class CreateShiftPatternDto {
   @IsUUID()
   workSiteId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  assignedEmployeeMembershipId?: string;
+
   @IsArray()
   @ArrayMaxSize(7)
   @ArrayUnique()
@@ -99,6 +104,10 @@ export class UpdateShiftPatternDto {
   @IsOptional()
   @IsUUID()
   workSiteId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  assignedEmployeeMembershipId?: string;
 
   @IsOptional()
   @IsArray()
@@ -169,5 +178,41 @@ export class CreateShiftPatternAssignmentDto {
   employeeMembershipId: string;
 
   @IsUUID()
-  patternId: string;
+  shiftPatternId: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveUntil?: string;
+}
+
+export class UpdateShiftPatternAssignmentDto {
+  @IsOptional()
+  @IsEnum(ShiftPatternAssignmentStatus)
+  status?: ShiftPatternAssignmentStatus;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveUntil?: string;
+}
+
+export class ListShiftPatternAssignmentsQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsUUID()
+  shiftPatternId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  employeeMembershipId?: string;
+
+  @IsOptional()
+  @IsEnum(ShiftPatternAssignmentStatus)
+  status?: ShiftPatternAssignmentStatus;
 }

@@ -173,6 +173,7 @@ function createClockOutManager() {
     status: WorkSessionStatus.OPEN,
     actualClockInAt: new Date('2026-06-30T08:00:00.000Z'),
     plannedShiftAssignmentId: null,
+    plannedShiftPatternId: null,
     plannedShiftInstanceId: null
   };
   let nextId = 0;

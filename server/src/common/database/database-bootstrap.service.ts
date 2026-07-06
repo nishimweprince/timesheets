@@ -29,10 +29,19 @@ export class DatabaseBootstrapService implements OnApplicationBootstrap {
        WHERE status = 'OPEN'`,
       `CREATE UNIQUE INDEX IF NOT EXISTS uq_clock_attempt_idempotency
        ON clock_attempts (organization_id, employee_membership_id, action, idempotency_key)`,
+      `ALTER TABLE shift_patterns
+       ADD COLUMN IF NOT EXISTS assigned_employee_membership_id uuid`,
+      `ALTER TABLE work_sessions
+       ADD COLUMN IF NOT EXISTS planned_shift_pattern_id uuid`,
+      `ALTER TABLE attendance_events
+       ADD COLUMN IF NOT EXISTS resolved_shift_pattern_id uuid`,
+      `CREATE INDEX IF NOT EXISTS idx_shift_patterns_assigned_employee
+       ON shift_patterns (organization_id, assigned_employee_membership_id)
+       WHERE assigned_employee_membership_id IS NOT NULL`,
       `CREATE UNIQUE INDEX IF NOT EXISTS uq_shift_assignment
        ON shift_assignments (organization_id, employee_membership_id, shift_instance_id)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS uq_active_shift_pattern_assignment
-       ON shift_pattern_assignments (organization_id, employee_membership_id, pattern_id)
+       ON shift_pattern_assignments (organization_id, employee_membership_id, shift_pattern_id)
        WHERE status = 'ACTIVE'`,
       `CREATE INDEX IF NOT EXISTS idx_attendance_events_location
        ON attendance_events USING GIST (location_point)`

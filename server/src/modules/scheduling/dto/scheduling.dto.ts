@@ -48,6 +48,10 @@ export class ListSchedulingQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ShiftPatternAssignmentStatus)
   patternAssignmentStatus?: ShiftPatternAssignmentStatus;
+
+  @IsOptional()
+  @IsString()
+  statuses?: string;
 }
 
 export class CreateShiftPatternDto {

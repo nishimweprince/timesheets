@@ -1,12 +1,14 @@
-// @ts-nocheck  -- vitest types not present in project tsconfig; test runs via npx vitest (temp)
 import { describe, it, expect } from 'vitest'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { DataTable, derivePageCount } from './DataTable'
+import type { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { DataTablePaginationInfo } from './DataTable'
 
 // Exact payload from the goal (data truncated for test)
-const EXAMPLE_PAYLOAD: DataTablePaginationInfo & { data: any[] } = {
+type TestRow = { id: string }
+
+const EXAMPLE_PAYLOAD: DataTablePaginationInfo & { data: TestRow[] } = {
   data: [
     { id: 'bc766d2f-c920-4604-9226-d91f92396e47' },
     { id: '49d7fdc1-1c4d-4a1d-88de-79cbd78cceb2' },
@@ -18,11 +20,15 @@ const EXAMPLE_PAYLOAD: DataTablePaginationInfo & { data: any[] } = {
   pageSize: 12,
 }
 
-const cols = [{ accessorKey: 'id', header: 'Id' }] as any
+const cols: ColumnDef<TestRow>[] = [{ accessorKey: 'id', header: 'Id' }]
 
-function renderTable(pagination: any, paginationInfo: any, pageSizeOptions?: number[]) {
+function renderTable(
+  pagination: PaginationState,
+  paginationInfo: DataTablePaginationInfo & { data: TestRow[] },
+  pageSizeOptions?: number[],
+) {
   return renderToStaticMarkup(
-    React.createElement(DataTable as any, {
+    React.createElement(DataTable<TestRow, unknown>, {
       columns: cols,
       data: paginationInfo.data,
       pagination,
@@ -30,7 +36,7 @@ function renderTable(pagination: any, paginationInfo: any, pageSizeOptions?: num
       onPaginationChange: () => {},
       rowCount: paginationInfo.total,
       pageSizeOptions: pageSizeOptions || [4, 8, 12],
-      getRowId: (r: any) => r.id,
+      getRowId: (r: TestRow) => r.id,
     })
   )
 }
@@ -78,7 +84,7 @@ describe('DataTable pagination from backend paginationInfo (real shipped paths)'
   })
 
   it('initial empty info (total=0, pageSize=10) does not override caller initial (e.g. 4 or 8)', () => {
-    const emptyInfo = { data: [], total: 0, page: 1, pageSize: 10 }
+    const emptyInfo: DataTablePaginationInfo & { data: TestRow[] } = { data: [], total: 0, page: 1, pageSize: 10 }
     const html4 = renderTable({ pageIndex: 0, pageSize: 4 }, emptyInfo, [4, 8, 12])
     const html8 = renderTable({ pageIndex: 0, pageSize: 8 }, emptyInfo, [4, 8, 12])
     // The caller inits are used for the view; we assert the component rendered without

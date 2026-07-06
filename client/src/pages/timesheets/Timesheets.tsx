@@ -23,11 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DataTable } from "@/components/reusable/tables"
+import Modal from "@/components/reusable/cards/Modal"
 import { CameraModal } from "@/components/reusable/cards/CameraModal"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import { fetchHistory, fetchHistorySummary } from "@/states/features/attendance.slice"
-import { fetchAssignments, fetchInstances } from "@/states/features/scheduling.slice"
-import { ShiftAssignmentStatus, ShiftInstanceStatus } from "@/lib/api/scheduling.api"
+import { fetchMyShifts } from "@/states/features/scheduling.slice"
+import { ShiftInstanceStatus, type MyShift } from "@/lib/api/scheduling.api"
 import { useClockSession } from "@/hooks/use-clock-session"
 import {
   formatDate,
@@ -98,9 +99,8 @@ const Timesheets = () => {
   const isLoading = isHistoryLoading && history.data.length === 0
   const isFetching = isHistoryLoading && history.data.length > 0
   const permissions = useAppSelector((s) => s.auth.user?.permissions ?? [])
-  const membershipId = useAppSelector((s) => s.auth.user?.membershipId)
-  const instances = useAppSelector((s) => s.scheduling.instances)
-  const assignments = useAppSelector((s) => s.scheduling.assignments)
+  const myShifts = useAppSelector((s) => s.scheduling.myShifts)
+  const areShiftsLoading = useAppSelector((s) => s.scheduling.status.myShifts === "loading")
 
   const canClockInOut = permissions.includes("attendance.clock_in.self")
   const canViewShifts = permissions.includes("shift.read")
@@ -118,6 +118,7 @@ const Timesheets = () => {
 
   const [cameraModalOpen, setCameraModalOpen] = React.useState(false)
   const [pendingAction, setPendingAction] = React.useState<'in' | 'out' | null>(null)
+  const [selectedShift, setSelectedShift] = React.useState<MyShift | null>(null)
 
   const handleClockButton = () => {
     const needsPhoto = isOnShift
@@ -159,22 +160,20 @@ const Timesheets = () => {
 
   React.useEffect(() => {
     if (!canViewShifts) return
-    dispatch(fetchInstances())
-    dispatch(fetchAssignments())
+    dispatch(fetchMyShifts())
   }, [dispatch, canViewShifts])
 
   const myUpcomingShifts = React.useMemo(() => {
-    if (!membershipId) return []
     const now = new Date().getTime()
-    return assignments
-      .filter((a) => a.employeeMembershipId === membershipId && a.status === ShiftAssignmentStatus.ACTIVE)
-      .map((a) => instances.find((i) => i.id === a.shiftInstanceId))
+    return myShifts
       .filter(
-        (i): i is NonNullable<typeof i> =>
-          !!i && i.status === ShiftInstanceStatus.SCHEDULED && new Date(i.endAt).getTime() >= now
+        (myShift) =>
+          (myShift.shift.status === ShiftInstanceStatus.SCHEDULED ||
+            myShift.shift.status === ShiftInstanceStatus.MODIFIED) &&
+          new Date(myShift.shift.endAt).getTime() >= now
       )
-      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
-  }, [assignments, instances, membershipId])
+      .sort((a, b) => new Date(a.shift.startAt).getTime() - new Date(b.shift.startAt).getTime())
+  }, [myShifts])
 
   const [nextShift, ...laterShifts] = myUpcomingShifts
 
@@ -294,36 +293,43 @@ const Timesheets = () => {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-0">
                   {nextShift ? (
-                    <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border/60 py-3 pl-4 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-primary">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShift(nextShift)}
+                      className="relative flex w-full flex-wrap items-center justify-between gap-3 border-b border-border/60 py-3 pl-4 text-left transition-colors before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-primary hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
                       <div>
                         <div className="text-[13px] font-medium uppercase tracking-[0.12em] text-primary">
-                          {shiftDayLabel(nextShift.startAt)}
+                          {shiftDayLabel(nextShift.shift.startAt)}
                         </div>
                         <div className="text-lg font-semibold tabular-nums tracking-tight">
-                          {formatTime(nextShift.startAt)} – {formatTime(nextShift.endAt)}
+                          {formatTime(nextShift.shift.startAt)} – {formatTime(nextShift.shift.endAt)}
                         </div>
                       </div>
                       <span className="text-[13px] text-muted-foreground tabular-nums">
-                        {formatDate(nextShift.startAt)}
+                        {formatDate(nextShift.shift.startAt)}
                       </span>
-                    </div>
+                    </button>
                   ) : (
                     <p className="py-3 pl-4 text-sm text-muted-foreground">
-                      No upcoming shifts scheduled.
+                      {areShiftsLoading ? "Loading shifts…" : "No upcoming shifts scheduled."}
                     </p>
                   )}
 
                   {laterShifts.length > 0 && (
                     <ul className="flex flex-col">
-                      {laterShifts.slice(0, 5).map((shift) => (
-                        <li
-                          key={shift.id}
-                          className="flex items-center justify-between border-b border-border/40 py-2.5 pl-4 text-sm last:border-b-0"
-                        >
-                          <span className="text-muted-foreground">{shiftDayLabel(shift.startAt)}</span>
-                          <span className="tabular-nums">
-                            {formatTime(shift.startAt)} – {formatTime(shift.endAt)}
-                          </span>
+                      {laterShifts.slice(0, 5).map((myShift) => (
+                        <li key={myShift.assignmentId} className="border-b border-border/40 last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedShift(myShift)}
+                            className="flex w-full items-center justify-between py-2.5 pl-4 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          >
+                            <span className="text-muted-foreground">{shiftDayLabel(myShift.shift.startAt)}</span>
+                            <span className="tabular-nums">
+                              {formatTime(myShift.shift.startAt)} – {formatTime(myShift.shift.endAt)}
+                            </span>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -331,6 +337,46 @@ const Timesheets = () => {
                 </CardContent>
               </Card>
             )}
+
+            <Modal
+              isOpen={Boolean(selectedShift)}
+              onClose={() => setSelectedShift(null)}
+              heading="Shift details"
+              description="Review the scheduled time before clocking in."
+              className="min-w-[32rem]"
+            >
+              {selectedShift && (
+                <div className="space-y-4">
+                  <div className="rounded-md border border-border/60 p-4">
+                    <div className="text-[13px] font-medium uppercase tracking-[0.12em] text-primary">
+                      {shiftDayLabel(selectedShift.shift.startAt)}
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                      {formatTime(selectedShift.shift.startAt)} – {formatTime(selectedShift.shift.endAt)}
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground tabular-nums">
+                      {formatDate(selectedShift.shift.startAt)}
+                    </div>
+                  </div>
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground">Status</dt>
+                      <dd className="font-medium">{selectedShift.shift.status}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Shift ID</dt>
+                      <dd className="truncate font-mono text-xs">{selectedShift.shiftInstanceId}</dd>
+                    </div>
+                  </dl>
+                  {canClockInOut && !isOnShift && (
+                    <Button className="w-full" onClick={handleClockButton} disabled={actionLoading}>
+                      <PlayIcon data-icon="inline-start" />
+                      {clockInLoading ? "Clocking in…" : "Clock In"}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Modal>
 
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-3">

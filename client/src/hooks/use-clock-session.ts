@@ -12,7 +12,13 @@ import { WorkSessionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
 import { setLocation } from "@/states/features/location.slice"
 
-export function useClockSession(enabled = true) {
+export interface SelectedShiftContext {
+  requestedShiftAssignmentId?: string
+  requestedShiftInstanceId?: string
+  requestedShiftPatternAssignmentId?: string
+}
+
+export function useClockSession(enabled = true, selectedShiftContext?: SelectedShiftContext) {
   const dispatch = useAppDispatch()
 
   const currentSession = useAppSelector((s) => s.attendance.currentSession)
@@ -76,6 +82,7 @@ export function useClockSession(enabled = true) {
           clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
           location: { ...location, source: "browser", permissionState: "granted" },
+          ...(selectedShiftContext ?? {}),
           ...(cameraEvidenceId ? { cameraEvidenceId } : {}),
         })
       ).unwrap()

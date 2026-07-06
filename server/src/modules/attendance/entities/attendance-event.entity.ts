@@ -54,8 +54,17 @@ export class AttendanceEvent {
   @Column({ name: 'requested_shift_assignment_id', type: 'uuid', nullable: true })
   requestedShiftAssignmentId: string | null;
 
+  @Column({ name: 'requested_shift_instance_id', type: 'uuid', nullable: true })
+  requestedShiftInstanceId: string | null;
+
+  @Column({ name: 'requested_shift_pattern_assignment_id', type: 'uuid', nullable: true })
+  requestedShiftPatternAssignmentId: string | null;
+
   @Column({ name: 'resolved_shift_assignment_id', type: 'uuid', nullable: true })
   resolvedShiftAssignmentId: string | null;
+
+  @Column({ name: 'resolved_shift_pattern_assignment_id', type: 'uuid', nullable: true })
+  resolvedShiftPatternAssignmentId: string | null;
 
   @Column({ name: 'resolved_shift_instance_id', type: 'uuid', nullable: true })
   resolvedShiftInstanceId: string | null;

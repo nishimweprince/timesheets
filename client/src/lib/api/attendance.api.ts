@@ -20,6 +20,7 @@ export interface WorkSession {
   plannedShiftInstanceId: string | null
   plannedShiftAssignmentId: string | null
   plannedShiftPatternId: string | null
+  plannedShiftPatternAssignmentId: string | null
   status: WorkSessionStatus
   resolutionType: string
   reviewStatus: string
@@ -52,6 +53,8 @@ export interface AttendanceException {
 
 export interface ClockPayload {
   requestedShiftAssignmentId?: string
+  requestedShiftInstanceId?: string
+  requestedShiftPatternAssignmentId?: string
   clientReportedAt?: string
   clientTimezone?: string
   clientUtcOffsetMinutes?: number

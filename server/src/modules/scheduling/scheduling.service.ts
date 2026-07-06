@@ -680,12 +680,54 @@ export class SchedulingService {
     employeeMembershipId: string,
     at: Date,
     requestedAssignmentId?: string | null,
+    requestedShiftInstanceId?: string | null,
+    requestedShiftPatternAssignmentId?: string | null
   ): Promise<{
     assignment: ShiftAssignment | null;
+    patternAssignment: ShiftPatternAssignment | null;
     pattern: ShiftPattern | null;
     instance: ShiftInstance | null;
     resolutionType: string;
   }> {
+    const activeStatuses = [ShiftInstanceStatus.SCHEDULED, ShiftInstanceStatus.MODIFIED];
+
+    if (requestedShiftPatternAssignmentId) {
+      const patternAssignment = await this.patternAssignments.findOne({
+        where: {
+          id: requestedShiftPatternAssignmentId,
+          organizationId,
+          employeeMembershipId,
+          status: ShiftPatternAssignmentStatus.ACTIVE
+        }
+      });
+      if (patternAssignment) {
+        const pattern = await this.patterns.findOne({
+          where: { id: patternAssignment.shiftPatternId, organizationId, active: true }
+        });
+        if (pattern) {
+          const instance = requestedShiftInstanceId
+            ? await this.instances.findOne({
+                where: {
+                  id: requestedShiftInstanceId,
+                  organizationId,
+                  patternId: pattern.id,
+                  status: In(activeStatuses)
+                }
+              })
+            : await this.findNearestPatternInstance(organizationId, pattern.id, at, activeStatuses);
+          if (instance) {
+            return {
+              assignment: null,
+              patternAssignment,
+              pattern,
+              instance,
+              resolutionType: 'MATCHED_ASSIGNED_SHIFT'
+            };
+          }
+        }
+      }
+    }
+
     if (requestedAssignmentId) {
       const assignment = await this.assignments.findOne({
         where: {
@@ -698,21 +740,15 @@ export class SchedulingService {
       if (assignment) {
         const instance = await this.instances.findOne({
           where: {
-            id: assignment.shiftInstanceId,
+            id: requestedShiftInstanceId ?? assignment.shiftInstanceId,
             organizationId,
-            status: In([
-              ShiftInstanceStatus.SCHEDULED,
-              ShiftInstanceStatus.MODIFIED,
-            ]),
-          },
+            status: In(activeStatuses)
+          }
         });
-        if (instance)
-          return {
-            assignment,
-            pattern: null,
-            instance,
-            resolutionType: "MATCHED_ALTERNATIVE_ASSIGNED_SHIFT",
-          };
+        if (instance && instance.id === assignment.shiftInstanceId) {
+          const pattern = instance.patternId ? await this.patterns.findOne({ where: { id: instance.patternId, organizationId } }) : null;
+          return { assignment, patternAssignment: null, pattern, instance, resolutionType: 'MATCHED_ALTERNATIVE_ASSIGNED_SHIFT' };
+        }
       }
     }
 
@@ -721,52 +757,38 @@ export class SchedulingService {
     const candidateInstances = await this.instances.find({
       where: {
         organizationId,
-        status: In([
-          ShiftInstanceStatus.SCHEDULED,
-          ShiftInstanceStatus.MODIFIED,
-        ]),
-        startAt: Between(windowStart, windowEnd),
+        status: In(activeStatuses),
+        startAt: Between(windowStart, windowEnd)
       },
       order: { startAt: "ASC" },
     });
-    const instanceIds = candidateInstances.map((instance) => instance.id);
-    if (instanceIds.length === 0)
-      return {
-        assignment: null,
-        pattern: null,
-        instance: null,
-        resolutionType: "UNASSIGNED_CLOCK_IN",
-      };
-
-    const patternIds = candidateInstances.map((instance) => instance.patternId).filter((id): id is string => Boolean(id));
+    const patternIds = Array.from(new Set(candidateInstances.map((instance) => instance.patternId).filter((id): id is string => Boolean(id))));
     if (patternIds.length > 0) {
       const patternAssignments = await this.patternAssignments.find({
-        where: {
-          organizationId,
-          employeeMembershipId,
-          shiftPatternId: In(patternIds),
-          status: ShiftPatternAssignmentStatus.ACTIVE,
-        },
+        where: { organizationId, employeeMembershipId, status: ShiftPatternAssignmentStatus.ACTIVE, shiftPatternId: In(patternIds) }
       });
-      const assignedPatternIds = patternAssignments.map((assignment) => assignment.shiftPatternId);
-      const patterns = assignedPatternIds.length > 0
-        ? await this.patterns.find({
-            where: { id: In(assignedPatternIds), organizationId, active: true },
-          })
-        : [];
-      const patternIdSet = new Set(patterns.map((pattern) => pattern.id));
-      const instance = candidateInstances.find((item) => item.patternId && patternIdSet.has(item.patternId));
-      const pattern = instance?.patternId ? patterns.find((item) => item.id === instance.patternId) ?? null : null;
-      if (instance && pattern) {
+      const patterns = await this.patterns.find({
+        where: { id: In(patternIds), organizationId, active: true },
+      });
+      const patternAssignmentsByPatternId = new Map(patternAssignments.map((assignment) => [assignment.shiftPatternId, assignment]));
+      const patternsById = new Map(patterns.map((pattern) => [pattern.id, pattern]));
+      const instance = candidateInstances.find((item) => item.patternId && patternAssignmentsByPatternId.has(item.patternId) && patternsById.has(item.patternId));
+      const patternAssignment = instance?.patternId ? patternAssignmentsByPatternId.get(instance.patternId) ?? null : null;
+      const pattern = instance?.patternId ? patternsById.get(instance.patternId) ?? null : null;
+      if (patternAssignment && pattern && instance) {
         const insideWindow = at >= instance.startAt && at <= instance.endAt;
         return {
           assignment: null,
+          patternAssignment,
           pattern,
           instance,
           resolutionType: insideWindow ? 'MATCHED_ASSIGNED_SHIFT' : 'MATCHED_OUTSIDE_ALLOWED_WINDOW'
         };
       }
     }
+
+    const instanceIds = candidateInstances.map((instance) => instance.id);
+    if (instanceIds.length === 0) return { assignment: null, patternAssignment: null, pattern: null, instance: null, resolutionType: 'UNASSIGNED_CLOCK_IN' };
 
     // Backwards-compatibility fallback for historical shift_assignments rows.
     const assignments = await this.assignments.find({
@@ -776,29 +798,29 @@ export class SchedulingService {
         status: ShiftAssignmentStatus.ACTIVE,
       },
     });
-    const assignment = assignments.find((item) =>
-      instanceIds.includes(item.shiftInstanceId),
-    );
-    const instance = assignment
-      ? (candidateInstances.find(
-          (item) => item.id === assignment.shiftInstanceId,
-        ) ?? null)
-      : null;
-    if (!assignment || !instance)
-      return {
-        assignment: null,
-        pattern: null,
-        instance: null,
-        resolutionType: "UNASSIGNED_CLOCK_IN",
-      };
+    const assignment = assignments.find((item) => instanceIds.includes(item.shiftInstanceId));
+    const instance = assignment ? candidateInstances.find((item) => item.id === assignment.shiftInstanceId) ?? null : null;
+    if (!assignment || !instance) return { assignment: null, patternAssignment: null, pattern: null, instance: null, resolutionType: 'UNASSIGNED_CLOCK_IN' };
+    const pattern = instance.patternId ? await this.patterns.findOne({ where: { id: instance.patternId, organizationId } }) : null;
     const insideWindow = at >= instance.startAt && at <= instance.endAt;
     return {
       assignment,
-      pattern: null,
+      patternAssignment: null,
+      pattern,
       instance,
       resolutionType: insideWindow
         ? "MATCHED_ASSIGNED_SHIFT"
         : "MATCHED_OUTSIDE_ALLOWED_WINDOW",
     };
+  }
+
+  private async findNearestPatternInstance(organizationId: string, patternId: string, at: Date, activeStatuses: ShiftInstanceStatus[]): Promise<ShiftInstance | null> {
+    const windowStart = new Date(at.getTime() - 6 * 60 * 60 * 1000);
+    const windowEnd = new Date(at.getTime() + 6 * 60 * 60 * 1000);
+    const instances = await this.instances.find({
+      where: { organizationId, patternId, status: In(activeStatuses), startAt: Between(windowStart, windowEnd) },
+      order: { startAt: 'ASC' }
+    });
+    return instances[0] ?? null;
   }
 }

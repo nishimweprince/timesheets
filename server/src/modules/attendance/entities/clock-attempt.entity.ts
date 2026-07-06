@@ -47,6 +47,12 @@ export class ClockAttempt {
   @Column({ name: 'requested_shift_assignment_id', type: 'uuid', nullable: true })
   requestedShiftAssignmentId: string | null;
 
+  @Column({ name: 'requested_shift_instance_id', type: 'uuid', nullable: true })
+  requestedShiftInstanceId: string | null;
+
+  @Column({ name: 'requested_shift_pattern_assignment_id', type: 'uuid', nullable: true })
+  requestedShiftPatternAssignmentId: string | null;
+
   @Column({ name: 'created_work_session_id', type: 'uuid', nullable: true })
   createdWorkSessionId: string | null;
 

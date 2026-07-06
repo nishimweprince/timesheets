@@ -26,3 +26,6 @@
 .claude/
 .bob/
 .cursor/
+
+# DS_Store
+.DS_Store

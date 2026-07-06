@@ -848,7 +848,7 @@ const Scheduling = () => {
   )
 
   const refreshInstances = () => {
-    dispatch(fetchInstances())
+    dispatch(fetchInstances({}))
     dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
   }
 

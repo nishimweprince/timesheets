@@ -16,9 +16,11 @@ import { RequestUser } from "../../common/types/authenticated-request";
 import {
   CreateShiftAssignmentDto,
   CreateShiftInstanceDto,
+  CreateShiftPatternAssignmentDto,
   CreateShiftPatternDto,
   ListSchedulingQueryDto,
   OverrideShiftInstanceDto,
+  ScheduleDateRangeQueryDto,
   UpdateShiftPatternDto,
 } from "./dto/scheduling.dto";
 import { SchedulingService } from "./scheduling.service";
@@ -26,6 +28,15 @@ import { SchedulingService } from "./scheduling.service";
 @Controller()
 export class SchedulingController {
   constructor(private readonly schedulingService: SchedulingService) {}
+
+  @Get("my-shifts")
+  @Permissions("shift.read")
+  findMyPatternShifts(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ScheduleDateRangeQueryDto,
+  ) {
+    return this.schedulingService.findMyShifts(user, query);
+  }
 
   @Get("shift-patterns")
   @Permissions("shift.read")
@@ -69,11 +80,11 @@ export class SchedulingController {
 
   @Get("me/shifts")
   @Permissions("shift.read")
-  findMyShifts(
+  findMyAssignedShifts(
     @CurrentUser() user: RequestUser,
     @Query() query: ListSchedulingQueryDto,
   ) {
-    return this.schedulingService.findMyShifts(user, query);
+    return this.schedulingService.findMyAssignedShifts(user, query);
   }
 
   @Get("shift-instances")
@@ -114,6 +125,16 @@ export class SchedulingController {
     @Param("id", new ParseUUIDPipe()) id: string,
   ) {
     return this.schedulingService.cancelInstance(user, id);
+  }
+
+  @Post("shift-pattern-assignments")
+  @Permissions("shift.assign")
+  @ResponseMessage("Shift pattern assigned successfully")
+  assignPattern(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateShiftPatternAssignmentDto,
+  ) {
+    return this.schedulingService.assignPattern(user, dto);
   }
 
   @Get("shift-assignments")

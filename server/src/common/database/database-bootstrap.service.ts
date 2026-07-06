@@ -31,6 +31,9 @@ export class DatabaseBootstrapService implements OnApplicationBootstrap {
        ON clock_attempts (organization_id, employee_membership_id, action, idempotency_key)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS uq_shift_assignment
        ON shift_assignments (organization_id, employee_membership_id, shift_instance_id)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_active_shift_pattern_assignment
+       ON shift_pattern_assignments (organization_id, employee_membership_id, pattern_id)
+       WHERE status = 'ACTIVE'`,
       `CREATE INDEX IF NOT EXISTS idx_attendance_events_location
        ON attendance_events USING GIST (location_point)`
     ];

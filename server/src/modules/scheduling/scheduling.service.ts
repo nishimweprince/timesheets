@@ -22,11 +22,17 @@ import {
   ShiftAssignmentStatus,
 } from "./entities/shift-assignment.entity";
 import {
+  ShiftPatternAssignment,
+  ShiftPatternAssignmentStatus,
+} from "./entities/shift-pattern-assignment.entity";
+import {
   CreateShiftAssignmentDto,
   CreateShiftInstanceDto,
+  CreateShiftPatternAssignmentDto,
   CreateShiftPatternDto,
   ListSchedulingQueryDto,
   OverrideShiftInstanceDto,
+  ScheduleDateRangeQueryDto,
   UpdateShiftPatternDto,
 } from "./dto/scheduling.dto";
 
@@ -40,6 +46,8 @@ export interface MyShift {
   assignedAt: Date;
   shift: ShiftInstance;
 }
+
+export type PatternDerivedShift = ShiftInstance & { patternName: string };
 
 const ISO_WEEKDAY_TO_RRULE: Record<number, Weekday> = {
   1: RRule.MO,
@@ -60,6 +68,8 @@ export class SchedulingService {
     private readonly instances: Repository<ShiftInstance>,
     @InjectRepository(ShiftAssignment)
     private readonly assignments: Repository<ShiftAssignment>,
+    @InjectRepository(ShiftPatternAssignment)
+    private readonly patternAssignments: Repository<ShiftPatternAssignment>,
   ) {}
 
   // Patterns
@@ -266,10 +276,53 @@ export class SchedulingService {
     );
   }
 
-  async findAssignments(
-    user: RequestUser,
-    query: ListSchedulingQueryDto,
-  ): Promise<PaginatedResult<ShiftAssignment>> {
+  async assignPattern(user: RequestUser, dto: CreateShiftPatternAssignmentDto): Promise<ShiftPatternAssignment> {
+    const pattern = await this.patterns.findOne({
+      where: { id: dto.patternId, organizationId: user.organizationId }
+    });
+    if (!pattern) throw new NotFoundException('Shift pattern not found');
+    return this.patternAssignments.save(
+      this.patternAssignments.create({
+        organizationId: user.organizationId,
+        employeeMembershipId: dto.employeeMembershipId,
+        patternId: dto.patternId
+      })
+    );
+  }
+
+  async findMyShifts(user: RequestUser, query: ScheduleDateRangeQueryDto): Promise<PatternDerivedShift[]> {
+    const assignments = await this.patternAssignments.find({
+      where: {
+        organizationId: user.organizationId,
+        employeeMembershipId: user.membershipId,
+        status: ShiftPatternAssignmentStatus.ACTIVE
+      }
+    });
+    const patternIds = Array.from(new Set(assignments.map((assignment) => assignment.patternId)));
+    if (patternIds.length === 0) return [];
+
+    const patterns = await this.patterns.find({
+      where: { id: In(patternIds), organizationId: user.organizationId }
+    });
+    const patternNames = new Map(patterns.map((pattern) => [pattern.id, pattern.name]));
+
+    const instances = await this.instances.find({
+      where: {
+        organizationId: user.organizationId,
+        patternId: In(patternIds),
+        shiftDate: Between(query.from, query.to) as unknown as string,
+        status: In([ShiftInstanceStatus.SCHEDULED, ShiftInstanceStatus.MODIFIED])
+      },
+      order: { startAt: 'ASC' }
+    });
+
+    return instances.map((instance) => ({
+      ...instance,
+      patternName: instance.patternId ? patternNames.get(instance.patternId) ?? '' : ''
+    }));
+  }
+
+  async findAssignments(user: RequestUser, query: ListSchedulingQueryDto): Promise<PaginatedResult<ShiftAssignment>> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
     const [data, total] = await this.assignments.findAndCount({
@@ -281,7 +334,7 @@ export class SchedulingService {
     return paginate(data, total, page, pageSize);
   }
 
-  async findMyShifts(
+  async findMyAssignedShifts(
     user: RequestUser,
     query: ListSchedulingQueryDto,
   ): Promise<PaginatedResult<MyShift>> {

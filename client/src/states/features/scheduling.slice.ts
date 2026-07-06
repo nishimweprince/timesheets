@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import {
   schedulingApi,
   type CreateShiftAssignmentPayload,
+  type CreateShiftPatternAssignmentPayload,
   type CreateShiftInstancePayload,
   type CreateShiftPatternPayload,
   type MyShift,
@@ -9,7 +10,9 @@ import {
   type ShiftAssignment,
   type ShiftInstance,
   type ShiftInstanceQueryParams,
+  type ShiftPatternAssignment,
   type ShiftPattern,
+  type UpdateShiftPatternAssignmentPayload,
   type UpdateShiftPatternPayload,
 } from '@/lib/api/scheduling.api'
 import type { PaginatedResult, PaginationParams } from '@/lib/api/pagination'
@@ -25,22 +28,27 @@ interface SchedulingState {
   instances: ShiftInstance[]
   assignments: ShiftAssignment[]
   myShifts: MyShift[]
+  patternAssignments: ShiftPatternAssignment[]
   patternsPage: PaginatedResult<ShiftPattern>
   instancesPage: PaginatedResult<ShiftInstance>
   assignmentsPage: PaginatedResult<ShiftAssignment>
+  patternAssignmentsPage: PaginatedResult<ShiftPatternAssignment>
   latestRequests: {
     patternsPage?: string
     instancesPage?: string
     assignmentsPage?: string
+    patternAssignmentsPage?: string
   }
   status: {
     patterns: LoadStatus
     instances: LoadStatus
     assignments: LoadStatus
     myShifts: LoadStatus
+    patternAssignments: LoadStatus
     patternsPage: LoadStatus
     instancesPage: LoadStatus
     assignmentsPage: LoadStatus
+    patternAssignmentsPage: LoadStatus
     createPattern: LoadStatus
     updatePattern: LoadStatus
     archivePattern: LoadStatus
@@ -48,6 +56,8 @@ interface SchedulingState {
     overrideInstance: LoadStatus
     cancelInstance: LoadStatus
     assign: LoadStatus
+    updatePatternAssignment: LoadStatus
+    cancelPatternAssignment: LoadStatus
   }
 }
 
@@ -56,18 +66,22 @@ const initialState: SchedulingState = {
   instances: [],
   assignments: [],
   myShifts: [],
+  patternAssignments: [],
   patternsPage: emptyPage(),
   instancesPage: emptyPage(),
   assignmentsPage: emptyPage(),
+  patternAssignmentsPage: emptyPage(),
   latestRequests: {},
   status: {
     patterns: 'idle',
     instances: 'idle',
     assignments: 'idle',
     myShifts: 'idle',
+    patternAssignments: 'idle',
     patternsPage: 'idle',
     instancesPage: 'idle',
     assignmentsPage: 'idle',
+    patternAssignmentsPage: 'idle',
     createPattern: 'idle',
     updatePattern: 'idle',
     archivePattern: 'idle',
@@ -75,6 +89,8 @@ const initialState: SchedulingState = {
     overrideInstance: 'idle',
     cancelInstance: 'idle',
     assign: 'idle',
+    updatePatternAssignment: 'idle',
+    cancelPatternAssignment: 'idle',
   },
 }
 
@@ -104,6 +120,11 @@ export const fetchMyShifts = createAsyncThunk(
   }
 )
 
+export const fetchPatternAssignments = createAsyncThunk('scheduling/fetchPatternAssignments', async () => {
+  const result = await schedulingApi.patternAssignments({ page: 1, pageSize: LOOKUP_PAGE_SIZE })
+  return result.data
+})
+
 export const fetchPatternsPage = createAsyncThunk(
   'scheduling/fetchPatternsPage',
   (params?: PaginationParams) => schedulingApi.patterns(params)
@@ -117,6 +138,11 @@ export const fetchInstancesPage = createAsyncThunk(
 export const fetchAssignmentsPage = createAsyncThunk(
   'scheduling/fetchAssignmentsPage',
   (params?: PaginationParams) => schedulingApi.assignments(params)
+)
+
+export const fetchPatternAssignmentsPage = createAsyncThunk(
+  'scheduling/fetchPatternAssignmentsPage',
+  (params?: PaginationParams) => schedulingApi.patternAssignments(params)
 )
 
 export const createPattern = createAsyncThunk(
@@ -154,6 +180,22 @@ export const createAssignment = createAsyncThunk(
   (payload: CreateShiftAssignmentPayload) => schedulingApi.createAssignment(payload)
 )
 
+export const createPatternAssignment = createAsyncThunk(
+  'scheduling/createPatternAssignment',
+  (payload: CreateShiftPatternAssignmentPayload) => schedulingApi.createPatternAssignment(payload)
+)
+
+export const updatePatternAssignment = createAsyncThunk(
+  'scheduling/updatePatternAssignment',
+  ({ id, payload }: { id: string; payload: UpdateShiftPatternAssignmentPayload }) =>
+    schedulingApi.updatePatternAssignment(id, payload)
+)
+
+export const cancelPatternAssignment = createAsyncThunk(
+  'scheduling/cancelPatternAssignment',
+  (id: string) => schedulingApi.cancelPatternAssignment(id)
+)
+
 const schedulingSlice = createSlice({
   name: 'scheduling',
   initialState,
@@ -187,6 +229,13 @@ const schedulingSlice = createSlice({
         state.myShifts = action.payload
       })
       .addCase(fetchMyShifts.rejected, (state) => { state.status.myShifts = 'error' })
+
+      .addCase(fetchPatternAssignments.pending, (state) => { state.status.patternAssignments = 'loading' })
+      .addCase(fetchPatternAssignments.fulfilled, (state, action) => {
+        state.status.patternAssignments = 'idle'
+        state.patternAssignments = action.payload
+      })
+      .addCase(fetchPatternAssignments.rejected, (state) => { state.status.patternAssignments = 'error' })
 
       .addCase(fetchPatternsPage.pending, (state, action) => {
         state.status.patternsPage = 'loading'
@@ -234,6 +283,22 @@ const schedulingSlice = createSlice({
         if (state.latestRequests.assignmentsPage !== action.meta.requestId) return
         state.status.assignmentsPage = 'error'
         state.latestRequests.assignmentsPage = undefined
+      })
+
+      .addCase(fetchPatternAssignmentsPage.pending, (state, action) => {
+        state.status.patternAssignmentsPage = 'loading'
+        state.latestRequests.patternAssignmentsPage = action.meta.requestId
+      })
+      .addCase(fetchPatternAssignmentsPage.fulfilled, (state, action) => {
+        if (state.latestRequests.patternAssignmentsPage !== action.meta.requestId) return
+        state.status.patternAssignmentsPage = 'idle'
+        state.patternAssignmentsPage = action.payload
+        state.latestRequests.patternAssignmentsPage = undefined
+      })
+      .addCase(fetchPatternAssignmentsPage.rejected, (state, action) => {
+        if (state.latestRequests.patternAssignmentsPage !== action.meta.requestId) return
+        state.status.patternAssignmentsPage = 'error'
+        state.latestRequests.patternAssignmentsPage = undefined
       })
 
       .addCase(createPattern.pending, (state) => { state.status.createPattern = 'loading' })
@@ -288,6 +353,29 @@ const schedulingSlice = createSlice({
         state.assignments.push(action.payload)
       })
       .addCase(createAssignment.rejected, (state) => { state.status.assign = 'error' })
+
+      .addCase(createPatternAssignment.pending, (state) => { state.status.assign = 'loading' })
+      .addCase(createPatternAssignment.fulfilled, (state, action) => {
+        state.status.assign = 'idle'
+        state.patternAssignments.push(action.payload)
+      })
+      .addCase(createPatternAssignment.rejected, (state) => { state.status.assign = 'error' })
+
+      .addCase(updatePatternAssignment.pending, (state) => { state.status.updatePatternAssignment = 'loading' })
+      .addCase(updatePatternAssignment.fulfilled, (state, action) => {
+        state.status.updatePatternAssignment = 'idle'
+        const idx = state.patternAssignments.findIndex((a) => a.id === action.payload.id)
+        if (idx >= 0) state.patternAssignments[idx] = action.payload
+      })
+      .addCase(updatePatternAssignment.rejected, (state) => { state.status.updatePatternAssignment = 'error' })
+
+      .addCase(cancelPatternAssignment.pending, (state) => { state.status.cancelPatternAssignment = 'loading' })
+      .addCase(cancelPatternAssignment.fulfilled, (state, action) => {
+        state.status.cancelPatternAssignment = 'idle'
+        const idx = state.patternAssignments.findIndex((a) => a.id === action.payload.id)
+        if (idx >= 0) state.patternAssignments[idx] = action.payload
+      })
+      .addCase(cancelPatternAssignment.rejected, (state) => { state.status.cancelPatternAssignment = 'error' })
   },
 })
 

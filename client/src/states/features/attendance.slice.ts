@@ -32,6 +32,7 @@ interface AttendanceState {
     clockIn: LoadStatus
     clockOut: LoadStatus
     break: LoadStatus
+    review: LoadStatus
   }
 }
 
@@ -52,6 +53,7 @@ const initialState: AttendanceState = {
     clockIn: 'idle',
     clockOut: 'idle',
     break: 'idle',
+    review: 'idle',
   },
 }
 
@@ -97,6 +99,18 @@ export const startBreak = createAsyncThunk('attendance/startBreak', (payload: Cl
 
 export const endBreak = createAsyncThunk('attendance/endBreak', (payload: ClockPayload) =>
   attendanceApi.endBreak(payload)
+)
+
+export const approveSession = createAsyncThunk('attendance/approveSession', (id: string) =>
+  attendanceApi.approveSession(id)
+)
+
+export const rejectSession = createAsyncThunk('attendance/rejectSession', (id: string) =>
+  attendanceApi.rejectSession(id)
+)
+
+export const lockSession = createAsyncThunk('attendance/lockSession', (id: string) =>
+  attendanceApi.lockSession(id)
 )
 
 const attendanceSlice = createSlice({
@@ -175,6 +189,33 @@ const attendanceSlice = createSlice({
       .addCase(endBreak.pending, (state) => { state.status.break = 'loading' })
       .addCase(endBreak.fulfilled, (state) => { state.status.break = 'idle' })
       .addCase(endBreak.rejected, (state) => { state.status.break = 'error' })
+
+      .addCase(approveSession.pending, (state) => { state.status.review = 'loading' })
+      .addCase(approveSession.fulfilled, (state, action) => {
+        state.status.review = 'idle'
+        state.orgSessions = state.orgSessions.map((session) =>
+          session.id === action.payload.id ? action.payload : session
+        )
+      })
+      .addCase(approveSession.rejected, (state) => { state.status.review = 'error' })
+
+      .addCase(rejectSession.pending, (state) => { state.status.review = 'loading' })
+      .addCase(rejectSession.fulfilled, (state, action) => {
+        state.status.review = 'idle'
+        state.orgSessions = state.orgSessions.map((session) =>
+          session.id === action.payload.id ? action.payload : session
+        )
+      })
+      .addCase(rejectSession.rejected, (state) => { state.status.review = 'error' })
+
+      .addCase(lockSession.pending, (state) => { state.status.review = 'loading' })
+      .addCase(lockSession.fulfilled, (state, action) => {
+        state.status.review = 'idle'
+        state.orgSessions = state.orgSessions.map((session) =>
+          session.id === action.payload.id ? action.payload : session
+        )
+      })
+      .addCase(lockSession.rejected, (state) => { state.status.review = 'error' })
   },
 })
 

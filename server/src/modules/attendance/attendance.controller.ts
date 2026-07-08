@@ -69,6 +69,27 @@ export class AttendanceController {
     return this.attendanceService.sessionsForOrg(user).then((sessions) => sessions.find((session) => session.id === id) ?? null);
   }
 
+  @Post('sessions/:id/approve')
+  @Permissions('attendance.approve')
+  @ResponseMessage('Timesheet approved')
+  approveSession(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.approveSession(user, id);
+  }
+
+  @Post('sessions/:id/reject')
+  @Permissions('attendance.approve')
+  @ResponseMessage('Timesheet rejected')
+  rejectSession(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.rejectSession(user, id);
+  }
+
+  @Post('sessions/:id/lock')
+  @Permissions('attendance.lock')
+  @ResponseMessage('Timesheet locked')
+  lockSession(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.lockSession(user, id);
+  }
+
   @Get('exceptions')
   @Permissions('attendance.read.organization')
   exceptions(@CurrentUser() user: RequestUser) {

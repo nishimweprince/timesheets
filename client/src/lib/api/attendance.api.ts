@@ -138,6 +138,18 @@ export const attendanceApi = {
     return apiRequest<WorkSession | null>(`/attendance/sessions/${id}`)
   },
 
+  approveSession(id: string): Promise<WorkSession> {
+    return apiRequest<WorkSession>(`/attendance/sessions/${id}/approve`, { method: 'POST' })
+  },
+
+  rejectSession(id: string): Promise<WorkSession> {
+    return apiRequest<WorkSession>(`/attendance/sessions/${id}/reject`, { method: 'POST' })
+  },
+
+  lockSession(id: string): Promise<WorkSession> {
+    return apiRequest<WorkSession>(`/attendance/sessions/${id}/lock`, { method: 'POST' })
+  },
+
   exceptions(): Promise<AttendanceException[]> {
     return apiRequest<AttendanceException[]>('/attendance/exceptions')
   },

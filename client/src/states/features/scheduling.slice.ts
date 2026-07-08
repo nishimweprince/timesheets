@@ -6,6 +6,7 @@ import {
   type CreateShiftInstancePayload,
   type CreateShiftPatternPayload,
   type MyShift,
+  type MyShiftQueryParams,
   type OverrideShiftInstancePayload,
   type ShiftAssignment,
   type ShiftInstance,
@@ -114,10 +115,7 @@ export const fetchAssignments = createAsyncThunk('scheduling/fetchAssignments', 
 
 export const fetchMyShifts = createAsyncThunk(
   'scheduling/fetchMyShifts',
-  async (params?: ShiftInstanceQueryParams) => {
-    const result = await schedulingApi.myShifts({ page: 1, pageSize: LOOKUP_PAGE_SIZE, ...params })
-    return result.data
-  }
+  (params: MyShiftQueryParams) => schedulingApi.myShifts(params)
 )
 
 export const fetchPatternAssignments = createAsyncThunk('scheduling/fetchPatternAssignments', async () => {

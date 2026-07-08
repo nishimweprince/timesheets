@@ -124,9 +124,78 @@ describe('AttendanceService location requirements', () => {
     });
     expect((attendanceEventCall?.[1] as Partial<AttendanceEvent>).locationAccuracyMeters).toBe(8);
   });
+
+  it('approves a clocked-out session and records an audit event', async () => {
+    const session = {
+      id: 'work-session-id',
+      organizationId: user.organizationId,
+      employeeMembershipId: user.membershipId,
+      status: WorkSessionStatus.CLOCKED_OUT,
+      reviewStatus: 'REQUIRED'
+    } as WorkSession;
+    const sessions = {
+      findOne: jest.fn().mockResolvedValue(session),
+      save: jest.fn(async (value: WorkSession) => value)
+    };
+    const auditService = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const service = createService({}, { sessions, auditService });
+
+    const result = await service.approveSession(user, session.id);
+
+    expect(result.status).toBe(WorkSessionStatus.APPROVED);
+    expect(result.reviewStatus).toBe('APPROVED');
+    expect(result.lastUpdatedById).toBe(user.userId);
+    expect(auditService.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'attendance.approve',
+      entityId: session.id
+    }));
+  });
+
+  it('rejects review transitions for open sessions', async () => {
+    const session = {
+      id: 'work-session-id',
+      organizationId: user.organizationId,
+      employeeMembershipId: user.membershipId,
+      status: WorkSessionStatus.OPEN,
+      reviewStatus: 'REQUIRED'
+    } as WorkSession;
+    const sessions = {
+      findOne: jest.fn().mockResolvedValue(session),
+      save: jest.fn()
+    };
+    const service = createService({}, { sessions });
+
+    await expect(service.rejectSession(user, session.id)).rejects.toBeInstanceOf(BadRequestException);
+    expect(sessions.save).not.toHaveBeenCalled();
+  });
+
+  it('locks only approved sessions', async () => {
+    const session = {
+      id: 'work-session-id',
+      organizationId: user.organizationId,
+      employeeMembershipId: user.membershipId,
+      status: WorkSessionStatus.CLOCKED_OUT,
+      reviewStatus: 'NOT_REQUIRED'
+    } as WorkSession;
+    const sessions = {
+      findOne: jest.fn().mockResolvedValue(session),
+      save: jest.fn()
+    };
+    const service = createService({}, { sessions });
+
+    await expect(service.lockSession(user, session.id)).rejects.toBeInstanceOf(BadRequestException);
+    expect(sessions.save).not.toHaveBeenCalled();
+  });
 });
 
-function createService(dataSource: object): AttendanceService {
+function createService(
+  dataSource: object,
+  overrides: {
+    sessions?: object
+    exceptions?: object
+    auditService?: object
+  } = {}
+): AttendanceService {
   const policiesService = {
     effectivePolicy: jest.fn().mockResolvedValue({ policy: null, rules: DEFAULT_POLICY_RULES }),
     policyResult: jest.fn().mockReturnValue({ allowed: true, requiresReview: false, exceptions: [] })
@@ -141,9 +210,9 @@ function createService(dataSource: object): AttendanceService {
     {} as never,
     policiesService as never,
     schedulingService as never,
-    auditService as never,
-    {} as never,
-    {} as never
+    (overrides.auditService ?? auditService) as never,
+    (overrides.sessions ?? {}) as never,
+    (overrides.exceptions ?? {}) as never
   );
 }
 

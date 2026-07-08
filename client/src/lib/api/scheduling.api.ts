@@ -121,13 +121,8 @@ export interface CreateShiftAssignmentPayload {
   shiftInstanceId: string
 }
 
-export interface MyShift {
-  assignmentId: string
-  employeeMembershipId: string
-  shiftInstanceId: string
-  assignmentStatus: ShiftAssignmentStatus
-  assignedAt: string
-  shift: ShiftInstance
+export interface MyShift extends ShiftInstance {
+  patternName: string
 }
 
 export interface CreateShiftPatternAssignmentPayload {
@@ -152,6 +147,11 @@ export interface ShiftInstanceQueryParams extends PaginationParams {
   statuses?: string
 }
 
+export interface MyShiftQueryParams {
+  from: string
+  to: string
+}
+
 export const schedulingApi = {
   patterns(params?: PaginationParams): Promise<PaginatedResult<ShiftPattern>> {
     return apiRequest<PaginatedResult<ShiftPattern>>(`/shift-patterns${toQueryString({ ...params })}`)
@@ -173,8 +173,8 @@ export const schedulingApi = {
     return apiRequest<PaginatedResult<ShiftInstance>>(`/shift-instances${toQueryString({ ...params })}`)
   },
 
-  myShifts(params?: ShiftInstanceQueryParams): Promise<PaginatedResult<MyShift>> {
-    return apiRequest<PaginatedResult<MyShift>>(`/me/shifts${toQueryString({ ...params })}`)
+  myShifts(params: MyShiftQueryParams): Promise<MyShift[]> {
+    return apiRequest<MyShift[]>(`/me/shifts${toQueryString({ ...params })}`)
   },
 
   createInstance(body: CreateShiftInstancePayload): Promise<ShiftInstance> {

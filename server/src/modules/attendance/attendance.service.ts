@@ -268,6 +268,51 @@ export class AttendanceService {
     );
   }
 
+  async approveSession(user: RequestUser, id: string): Promise<WorkSession> {
+    return this.transitionReviewedSession(user, id, WorkSessionStatus.APPROVED, 'APPROVED', 'attendance.approve');
+  }
+
+  async rejectSession(user: RequestUser, id: string): Promise<WorkSession> {
+    return this.transitionReviewedSession(user, id, WorkSessionStatus.REJECTED, 'REJECTED', 'attendance.reject');
+  }
+
+  async lockSession(user: RequestUser, id: string): Promise<WorkSession> {
+    return this.transitionReviewedSession(user, id, WorkSessionStatus.LOCKED, 'LOCKED', 'attendance.lock');
+  }
+
+  private async transitionReviewedSession(
+    user: RequestUser,
+    id: string,
+    status: WorkSessionStatus,
+    reviewStatus: string,
+    action: string
+  ): Promise<WorkSession> {
+    const session = await this.sessions.findOne({ where: { id, organizationId: user.organizationId } });
+    if (!session) throw new NotFoundException('Work session not found');
+    if (session.status === WorkSessionStatus.OPEN) throw new BadRequestException('Open sessions must be clocked out before review');
+    if (status === WorkSessionStatus.LOCKED && session.status !== WorkSessionStatus.APPROVED) {
+      throw new BadRequestException('Only approved sessions can be locked');
+    }
+
+    session.status = status;
+    session.reviewStatus = reviewStatus;
+    session.lastUpdatedById = user.userId;
+    const saved = await this.sessions.save(session);
+
+    await this.auditService.enqueue({
+      action,
+      layer: AuditLayer.ATTENDANCE,
+      correlationId: null,
+      organizationId: user.organizationId,
+      actorId: user.userId,
+      entityType: 'WorkSession',
+      entityId: saved.id,
+      metadata: { status, reviewStatus }
+    });
+
+    return saved;
+  }
+
   private idempotencyKey(request: AuthenticatedRequest): string {
     const key = request.header('idempotency-key');
     if (!key) throw new BadRequestException('Idempotency-Key header is required');

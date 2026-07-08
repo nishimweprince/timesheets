@@ -4,9 +4,11 @@ import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import {
   clockIn,
   clockOut,
+  endBreak,
   fetchCurrentSession,
   fetchEffectivePolicy,
   fetchHistory,
+  startBreak,
 } from "@/states/features/attendance.slice"
 import { WorkSessionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
@@ -24,6 +26,7 @@ export function useClockSession(enabled = true, selectedShiftContext?: SelectedS
   const currentSession = useAppSelector((s) => s.attendance.currentSession)
   const clockInLoading = useAppSelector((s) => s.attendance.status.clockIn === "loading")
   const clockOutLoading = useAppSelector((s) => s.attendance.status.clockOut === "loading")
+  const breakLoading = useAppSelector((s) => s.attendance.status.break === "loading")
   const storedCoords = useAppSelector((s) => s.location.coords)
   const effectivePolicy = useAppSelector((s) => s.attendance.effectivePolicy)
 
@@ -114,14 +117,37 @@ export function useClockSession(enabled = true, selectedShiftContext?: SelectedS
     }
   }
 
+  const handleBreakEvent = async (action: "start" | "end") => {
+    if (!enabled) return
+
+    try {
+      const location = await getLocation()
+      await dispatch(
+        (action === "start" ? startBreak : endBreak)({
+          clientReportedAt: new Date().toISOString(),
+          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+          location: { ...location, source: "browser", permissionState: "granted" },
+        })
+      ).unwrap()
+      dispatch(fetchCurrentSession())
+      dispatch(fetchHistory({ page: 1, pageSize: 10 }))
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
   return {
     currentSession,
     isOnShift,
     clockInLoading,
     clockOutLoading,
+    breakLoading,
     actionLoading: clockInLoading || clockOutLoading,
     effectivePolicy,
     handleClockIn,
     handleClockOut,
+    handleStartBreak: () => handleBreakEvent("start"),
+    handleEndBreak: () => handleBreakEvent("end"),
   }
 }

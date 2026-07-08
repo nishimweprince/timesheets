@@ -178,6 +178,768 @@ span, p, div {
   font-size: 13px !important;
 }
 
+.operations-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: #f7fafb;
+  padding: 1rem;
+}
+
+.dark .operations-page-header {
+  background: color-mix(in oklch, var(--app-surface) 82%, black);
+}
+
+.operations-label {
+  color: color-mix(in oklch, var(--foreground) 58%, transparent);
+  font-size: 12px !important;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.operations-mode-switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.operations-mode-button {
+  display: inline-flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-right: 1px solid var(--border);
+  padding-inline: 0.85rem;
+  color: var(--muted-foreground);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.operations-mode-button:last-child {
+  border-right: 0;
+}
+
+.operations-mode-button:hover,
+.operations-mode-button:focus-visible {
+  background: var(--field-hover);
+  color: var(--foreground);
+}
+
+.operations-mode-button-active {
+  background: color-mix(in oklch, var(--primary) 12%, var(--background));
+  color: var(--primary);
+}
+
+.operations-metric {
+  border-color: color-mix(in oklch, var(--border) 78%, transparent);
+  background: var(--card);
+}
+
+.operations-metric-icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted-foreground);
+}
+
+.operations-metric-success .operations-metric-icon {
+  border-color: color-mix(in oklch, #12806a 30%, transparent);
+  background: color-mix(in oklch, #12806a 10%, transparent);
+  color: #12806a;
+}
+
+.operations-metric-warning .operations-metric-icon {
+  border-color: color-mix(in oklch, #b56b12 30%, transparent);
+  background: color-mix(in oklch, #b56b12 10%, transparent);
+  color: #b56b12;
+}
+
+.operations-metric-danger .operations-metric-icon {
+  border-color: color-mix(in oklch, #b42318 30%, transparent);
+  background: color-mix(in oklch, #b42318 10%, transparent);
+  color: #b42318;
+}
+
+.operations-metric-info .operations-metric-icon {
+  border-color: color-mix(in oklch, #2563eb 30%, transparent);
+  background: color-mix(in oklch, #2563eb 10%, transparent);
+  color: #2563eb;
+}
+
+.coverage-ledger-card {
+  background: linear-gradient(
+    to bottom,
+    #f7fafb,
+    color-mix(in oklch, var(--card) 92%, #f7fafb)
+  );
+}
+
+.dark .coverage-ledger-card {
+  background: color-mix(in oklch, var(--card) 88%, black);
+}
+
+.coverage-ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.coverage-ledger-day {
+  min-height: 5.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.65rem;
+  background: var(--background);
+}
+
+.coverage-ledger-day-covered {
+  border-color: color-mix(in oklch, #12806a 28%, var(--border));
+  background: color-mix(in oklch, #12806a 8%, var(--background));
+}
+
+.coverage-ledger-day-gap {
+  border-color: color-mix(in oklch, #b56b12 38%, var(--border));
+  background: color-mix(in oklch, #b56b12 10%, var(--background));
+}
+
+.coverage-ledger-day-quiet {
+  background: color-mix(in oklch, var(--muted) 70%, var(--background));
+}
+
+.coverage-ledger-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.coverage-ledger-date span,
+.coverage-ledger-counts {
+  color: var(--muted-foreground);
+}
+
+.coverage-ledger-date strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.coverage-ledger-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.65rem;
+  font-size: 12px !important;
+}
+
+.coverage-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--muted-foreground);
+}
+
+.coverage-dot-covered {
+  background: #12806a;
+}
+
+.coverage-dot-gap {
+  background: #b56b12;
+}
+
+.coverage-dot-quiet {
+  background: #64748b;
+}
+
+.review-queue-card {
+  overflow: hidden;
+}
+
+.review-queue-section {
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.review-session-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  padding-bottom: 0.65rem;
+}
+
+.review-session-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.review-session-actions {
+  display: flex;
+  min-width: min(100%, 11rem);
+  flex: 1 1 11rem;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.review-session-actions button {
+  min-width: 5rem;
+}
+
+.review-exception-row {
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--field) 72%, transparent);
+  padding: 0.55rem 0.65rem;
+}
+
+.scheduling-calendar {
+  --calendar-grid: color-mix(in oklch, var(--border) 82%, transparent);
+  --calendar-header: color-mix(in oklch, var(--app-surface) 72%, white);
+  --calendar-today: color-mix(in oklch, var(--primary) 9%, transparent);
+  overflow: hidden;
+}
+
+.scheduling-calendar .rbc-calendar {
+  color: var(--foreground);
+}
+
+.scheduling-calendar .rbc-toolbar {
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.scheduling-calendar .rbc-toolbar-label {
+  color: var(--foreground);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.scheduling-calendar .rbc-btn-group {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.scheduling-calendar .rbc-btn-group button {
+  height: 2.25rem;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-weight: 500;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.scheduling-calendar .rbc-btn-group button:last-child {
+  border-right: 0;
+}
+
+.scheduling-calendar .rbc-btn-group button:hover,
+.scheduling-calendar .rbc-btn-group button:focus-visible {
+  background: var(--field-hover);
+  color: var(--foreground);
+}
+
+.scheduling-calendar .rbc-btn-group button.rbc-active {
+  background: color-mix(in oklch, var(--primary) 14%, var(--background));
+  color: var(--primary);
+  box-shadow: none;
+}
+
+.scheduling-calendar .rbc-month-view,
+.scheduling-calendar .rbc-time-view,
+.scheduling-calendar .rbc-agenda-view {
+  border-color: var(--calendar-grid);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.scheduling-calendar .rbc-header {
+  min-height: 2.4rem;
+  border-color: var(--calendar-grid);
+  background: var(--calendar-header);
+  color: var(--foreground);
+  font-weight: 650;
+  padding: 0.45rem 0.5rem;
+}
+
+.scheduling-calendar .rbc-time-header,
+.scheduling-calendar .rbc-time-content,
+.scheduling-calendar .rbc-timeslot-group,
+.scheduling-calendar .rbc-day-bg,
+.scheduling-calendar .rbc-month-row,
+.scheduling-calendar .rbc-date-cell {
+  border-color: var(--calendar-grid);
+}
+
+.scheduling-calendar .rbc-time-gutter,
+.scheduling-calendar .rbc-time-header-gutter {
+  background: color-mix(in oklch, var(--app-surface) 65%, white);
+}
+
+.scheduling-calendar .rbc-time-slot {
+  color: var(--muted-foreground);
+}
+
+.scheduling-calendar .rbc-today {
+  background: var(--calendar-today);
+}
+
+.scheduling-calendar .rbc-current-time-indicator {
+  height: 2px;
+  background: var(--destructive);
+}
+
+.scheduling-calendar .rbc-event.scheduling-calendar-event {
+  overflow: hidden;
+  border: 1px solid var(--event-border) !important;
+  border-radius: 6px;
+  background: var(--event-bg) !important;
+  color: var(--event-fg) !important;
+  cursor: pointer;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 14%, transparent);
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.scheduling-calendar .rbc-event.scheduling-calendar-event:hover {
+  background: var(--event-hover) !important;
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.scheduling-calendar .rbc-event.scheduling-calendar-event:focus,
+.scheduling-calendar .rbc-event.scheduling-calendar-event:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--event-fg) 76%, transparent);
+  outline-offset: 2px;
+}
+
+.scheduling-calendar .rbc-event-label {
+  display: none;
+}
+
+.scheduling-calendar .rbc-event-content {
+  height: 100%;
+}
+
+.scheduling-calendar-event-card {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+}
+
+.scheduling-calendar-event-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.42rem 0.55rem 0.46rem;
+}
+
+.scheduling-calendar-event-time,
+.scheduling-calendar-event-main,
+.scheduling-calendar-event-meta,
+.scheduling-calendar-event-pattern {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scheduling-calendar-event-time,
+.scheduling-calendar-event-main,
+.scheduling-calendar-event-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.scheduling-calendar-event-time {
+  color: var(--event-muted);
+  font-weight: 650;
+}
+
+.scheduling-calendar-event-time svg,
+.scheduling-calendar-event-main svg,
+.scheduling-calendar-event-detail svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.scheduling-calendar-event-main {
+  color: var(--event-fg);
+  font-weight: 700;
+}
+
+.scheduling-calendar-event-pattern {
+  color: var(--event-muted);
+  font-weight: 500;
+}
+
+.scheduling-calendar-event-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--event-muted);
+  text-transform: uppercase;
+}
+
+.scheduling-calendar-event-detail {
+  color: var(--event-fg);
+  font-weight: 650;
+}
+
+.scheduling-calendar .rbc-month-view .scheduling-calendar-event-card {
+  min-height: 1.8rem;
+}
+
+.scheduling-calendar .rbc-month-view .scheduling-calendar-event-time,
+.scheduling-calendar .rbc-month-view .scheduling-calendar-event-pattern,
+.scheduling-calendar .rbc-month-view .scheduling-calendar-event-meta {
+  display: none;
+}
+
+.scheduling-calendar .rbc-month-view .scheduling-calendar-event-body {
+  justify-content: center;
+  padding-block: 0.2rem;
+}
+
+.scheduling-calendar .rbc-agenda-view table {
+  border-color: var(--calendar-grid);
+}
+
+.scheduling-calendar .rbc-agenda-view tbody > tr > td {
+  border-color: var(--calendar-grid);
+  padding: 0.5rem;
+}
+
+.scheduling-calendar .rbc-agenda-event-cell .scheduling-calendar-event-card {
+  min-height: 3.2rem;
+}
+
+.employee-shift-calendar {
+  --employee-calendar-grid: color-mix(in oklch, var(--border) 84%, transparent);
+  --employee-calendar-header: color-mix(in oklch, var(--app-surface) 72%, white);
+  --employee-calendar-today: color-mix(in oklch, var(--primary) 8%, transparent);
+  --employee-calendar-event-bg: color-mix(in oklch, var(--primary) 86%, var(--success));
+  --employee-calendar-event-border: color-mix(in oklch, var(--primary) 70%, var(--foreground));
+  overflow: hidden;
+}
+
+.employee-action-card {
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  background:
+    linear-gradient(to bottom, color-mix(in oklch, #f7fafb 86%, white), var(--card));
+}
+
+.dark .employee-action-card {
+  background: color-mix(in oklch, var(--card) 90%, black);
+}
+
+.employee-readiness-chip {
+  display: inline-flex;
+  height: 1.85rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--primary) 7%, var(--background));
+  padding-inline: 0.65rem;
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
+  font-size: 12px !important;
+  white-space: nowrap;
+}
+
+.employee-shift-calendar .rbc-calendar {
+  color: var(--foreground);
+}
+
+.employee-shift-calendar .rbc-toolbar {
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.employee-shift-calendar .rbc-toolbar-label {
+  color: var(--foreground);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.employee-shift-calendar .rbc-btn-group {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.employee-shift-calendar .rbc-btn-group button {
+  height: 2.25rem;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-weight: 500;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.employee-shift-calendar .rbc-btn-group button:last-child {
+  border-right: 0;
+}
+
+.employee-shift-calendar .rbc-btn-group button:hover,
+.employee-shift-calendar .rbc-btn-group button:focus-visible {
+  background: var(--field-hover);
+  color: var(--foreground);
+}
+
+.employee-shift-calendar .rbc-btn-group button.rbc-active {
+  background: color-mix(in oklch, var(--primary) 12%, var(--background));
+  color: var(--primary);
+  box-shadow: none;
+}
+
+.employee-shift-calendar .rbc-month-view,
+.employee-shift-calendar .rbc-time-view,
+.employee-shift-calendar .rbc-agenda-view {
+  border-color: var(--employee-calendar-grid);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.employee-shift-calendar .rbc-header {
+  min-height: 2.35rem;
+  border-color: var(--employee-calendar-grid);
+  background: var(--employee-calendar-header);
+  color: var(--foreground);
+  font-weight: 650;
+  padding: 0.45rem 0.5rem;
+}
+
+.employee-shift-calendar .rbc-time-header,
+.employee-shift-calendar .rbc-time-content,
+.employee-shift-calendar .rbc-timeslot-group,
+.employee-shift-calendar .rbc-day-bg,
+.employee-shift-calendar .rbc-month-row,
+.employee-shift-calendar .rbc-date-cell {
+  border-color: var(--employee-calendar-grid);
+}
+
+.employee-shift-calendar .rbc-time-gutter,
+.employee-shift-calendar .rbc-time-header-gutter {
+  background: color-mix(in oklch, var(--app-surface) 65%, white);
+}
+
+.employee-shift-calendar .rbc-time-slot {
+  color: var(--muted-foreground);
+}
+
+.employee-shift-calendar .rbc-today {
+  background: var(--employee-calendar-today);
+}
+
+.employee-shift-calendar .rbc-current-time-indicator {
+  height: 2px;
+  background: var(--destructive);
+}
+
+.employee-shift-calendar .rbc-event.employee-shift-calendar-block {
+  overflow: hidden;
+  border: 1px solid var(--employee-calendar-event-border) !important;
+  border-radius: 6px;
+  background: var(--employee-calendar-event-bg) !important;
+  color: var(--primary-foreground) !important;
+  cursor: pointer;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 14%, transparent);
+  transition: filter 160ms ease, box-shadow 160ms ease;
+}
+
+.employee-shift-calendar .rbc-event.employee-shift-calendar-block:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--foreground) 16%, transparent);
+}
+
+.employee-shift-calendar .rbc-event.employee-shift-calendar-block:focus,
+.employee-shift-calendar .rbc-event.employee-shift-calendar-block:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--primary) 52%, white);
+  outline-offset: 2px;
+}
+
+.employee-shift-calendar .rbc-event-label {
+  display: none;
+}
+
+.employee-shift-calendar .rbc-event-content {
+  height: 100%;
+}
+
+.employee-shift-calendar-event {
+  display: flex;
+  min-width: 0;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.employee-shift-calendar-event-time,
+.employee-shift-calendar-event-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.employee-shift-calendar-event-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: color-mix(in oklch, var(--primary-foreground) 82%, transparent);
+  font-weight: 650;
+}
+
+.employee-shift-calendar-event-time svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.employee-shift-calendar-event-title {
+  color: var(--primary-foreground);
+  font-weight: 700;
+}
+
+.employee-shift-calendar .rbc-month-view .employee-shift-calendar-event-time {
+  display: none;
+}
+
+.employee-shift-calendar .rbc-month-view .employee-shift-calendar-event {
+  justify-content: center;
+  min-height: 1.8rem;
+  padding-block: 0.2rem;
+}
+
+.employee-shift-calendar .rbc-agenda-view table {
+  border-color: var(--employee-calendar-grid);
+}
+
+.employee-shift-calendar .rbc-agenda-view tbody > tr > td {
+  border-color: var(--employee-calendar-grid);
+  padding: 0.5rem;
+}
+
+.employee-shift-calendar .rbc-agenda-event-cell .employee-shift-calendar-event {
+  min-height: 3rem;
+}
+
+@media (max-width: 1180px) {
+  .coverage-ledger-grid {
+    grid-template-columns: repeat(7, minmax(7rem, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .operations-page-header {
+    flex-direction: column;
+  }
+
+  .operations-mode-switch {
+    width: 100%;
+  }
+
+  .operations-mode-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .coverage-ledger-grid {
+    grid-template-columns: repeat(7, minmax(6.5rem, 1fr));
+  }
+
+  .review-session-row {
+    align-items: stretch;
+  }
+
+  .review-session-actions {
+    width: 100%;
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .review-session-actions button {
+    flex: 1;
+  }
+
+  .scheduling-calendar {
+    height: 560px !important;
+  }
+
+  .scheduling-calendar .rbc-toolbar {
+    align-items: stretch;
+  }
+
+  .scheduling-calendar .rbc-toolbar .rbc-btn-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .scheduling-calendar .rbc-toolbar .rbc-btn-group button {
+    flex: 1;
+    padding-inline: 0.55rem;
+  }
+
+  .scheduling-calendar .rbc-toolbar-label {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+
+  .employee-shift-calendar {
+    height: 460px !important;
+  }
+
+  .employee-shift-calendar .rbc-toolbar {
+    align-items: stretch;
+  }
+
+  .employee-shift-calendar .rbc-toolbar .rbc-btn-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .employee-shift-calendar .rbc-toolbar .rbc-btn-group button {
+    flex: 1;
+    padding-inline: 0.55rem;
+  }
+
+  .employee-shift-calendar .rbc-toolbar-label {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+}
+
 .auth-grid-pattern {
   background-image:
     linear-gradient(to right, color-mix(in oklch, var(--primary) 8%, transparent) 1px, transparent 1px),
@@ -212,6 +974,18 @@ span, p, div {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scheduling-calendar .rbc-event.scheduling-calendar-event {
+    transition: none;
+  }
+
+  .scheduling-calendar .rbc-event.scheduling-calendar-event:hover {
+    transform: none;
+  }
+
+  .employee-shift-calendar .rbc-event.employee-shift-calendar-block {
+    transition: none;
+  }
+
   .auth-pulse-line {
     animation: none;
     opacity: 0.6;

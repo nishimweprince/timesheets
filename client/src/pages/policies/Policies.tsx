@@ -79,7 +79,7 @@ function scopeLabel(scope: string) {
   return scope.toLowerCase().replaceAll("_", " ")
 }
 
-function PoliciesPage() {
+function PoliciesPage({ tab = "policies" }: { tab?: Tab }) {
   const dispatch = useAppDispatch()
   const policiesPage = useAppSelector((state) => state.policies.policiesPage)
   const workSitesPage = useAppSelector((state) => state.policies.workSitesPage)
@@ -89,7 +89,7 @@ function PoliciesPage() {
   const canManage = permissions.includes("policy.manage")
   const canReadEmployees = permissions.includes("employee.read")
 
-  const [activeTab, setActiveTab] = React.useState<Tab>("policies")
+  const activeTab = tab
   const [policiesPagination, setPoliciesPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -302,43 +302,23 @@ function PoliciesPage() {
               />
             </div>
 
-            <div className="flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-center gap-1">
-                {(["policies", "work-sites"] as Tab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      "relative h-9 px-4 text-[13px] capitalize transition-colors",
-                      activeTab === tab
-                        ? "border-b-2 border-primary font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {tab.replace("-", " ")}
-                  </button>
-                ))}
+            {canManage ? (
+              <div className="flex items-center justify-end gap-2 border-b border-border pb-3">
+                {activeTab === "policies" ? (
+                  <>
+                    <AssignPolicyDialog
+                      policies={policiesPage.data}
+                      policiesTotal={policiesPage.total}
+                      canReadEmployees={canReadEmployees}
+                      onMutated={refresh}
+                    />
+                    <CreatePolicyDialog onMutated={refresh} />
+                  </>
+                ) : (
+                  <CreateWorkSiteDialog onMutated={refresh} />
+                )}
               </div>
-
-              {canManage ? (
-                <div className="flex items-center gap-2 pb-3 sm:pb-2">
-                  {activeTab === "policies" ? (
-                    <>
-                      <AssignPolicyDialog
-                        policies={policiesPage.data}
-                        policiesTotal={policiesPage.total}
-                        canReadEmployees={canReadEmployees}
-                        onMutated={refresh}
-                      />
-                      <CreatePolicyDialog onMutated={refresh} />
-                    </>
-                  ) : (
-                    <CreateWorkSiteDialog onMutated={refresh} />
-                  )}
-                </div>
-              ) : null}
-            </div>
+            ) : null}
 
             {activeTab === "policies" ? (
               <DataTable

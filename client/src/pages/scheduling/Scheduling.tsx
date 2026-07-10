@@ -11,7 +11,6 @@ import {
   CalendarRange,
   Clock3,
   Eye,
-  LayoutGrid,
   ListChecks,
   MapPin,
   MoreHorizontal,
@@ -216,8 +215,7 @@ const assignmentStatusClass: Record<ShiftAssignmentStatus, string> = {
 
 // --- View types ---
 
-type Mode = "coverage" | "setup"
-type SetupTab = "instances" | "assignments"
+type SchedulingView = "coverage" | "shifts" | "assignments"
 
 const calendarLocalizer = momentLocalizer(moment)
 
@@ -1438,7 +1436,7 @@ function ReviewQueue({
   )
 }
 
-const Scheduling = () => {
+const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
   const dispatch = useAppDispatch()
 
   const patterns = useAppSelector((s) => s.scheduling.patterns)
@@ -1458,12 +1456,22 @@ const Scheduling = () => {
     (s) => s.scheduling.status.cancelPatternAssignment === "loading",
   )
 
-  const [activeMode, setActiveMode] = React.useState<Mode>("coverage")
-  const [setupTab, setSetupTab] = React.useState<SetupTab>("instances")
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 8,
   })
+
+  // Reset to the first page when switching between the setup views, since the
+  // component instance persists across /scheduling/shifts <-> /scheduling/assignments.
+  // Storing the previous view in state and adjusting during render is React's
+  // recommended pattern for resetting state on a prop change.
+  const [previousView, setPreviousView] = React.useState(view)
+  if (previousView !== view) {
+    setPreviousView(view)
+    if (pagination.pageIndex !== 0) {
+      setPagination((p) => ({ ...p, pageIndex: 0 }))
+    }
+  }
   const [overrideTarget, setOverrideTarget] = React.useState<ShiftInstance | null>(null)
   const [calendarRange, setCalendarRange] = React.useState(() => {
     const today = new Date()
@@ -1486,10 +1494,9 @@ const Scheduling = () => {
 
   React.useEffect(() => {
     const params = { page: pagination.pageIndex + 1, pageSize: pagination.pageSize }
-    if (activeMode !== "setup") return
-    if (setupTab === "instances") dispatch(fetchInstancesPage(params))
-    else if (setupTab === "assignments") dispatch(fetchPatternAssignmentsPage(params))
-  }, [dispatch, activeMode, setupTab, pagination.pageIndex, pagination.pageSize])
+    if (view === "shifts") dispatch(fetchInstancesPage(params))
+    else if (view === "assignments") dispatch(fetchPatternAssignmentsPage(params))
+  }, [dispatch, view, pagination.pageIndex, pagination.pageSize])
 
   const calendarStatuses = React.useMemo(() => {
     const statuses: ShiftInstanceStatus[] = [
@@ -1502,7 +1509,7 @@ const Scheduling = () => {
   }, [])
 
   React.useEffect(() => {
-    if (activeMode !== "coverage") return
+    if (view !== "coverage") return
     dispatch(
       fetchInstances({
         from: calendarRange.from,
@@ -1511,7 +1518,7 @@ const Scheduling = () => {
         pageSize: 500,
       }),
     )
-  }, [activeMode, calendarRange.from, calendarRange.to, calendarStatuses, dispatch])
+  }, [view, calendarRange.from, calendarRange.to, calendarStatuses, dispatch])
 
   const handleCalendarRangeChange = React.useCallback((from: string, to: string) => {
     setCalendarRange((current) =>
@@ -1816,14 +1823,14 @@ const Scheduling = () => {
   )
 
   const isLoadingCurrent =
-    setupTab === "instances"
-      ? statusInstancesPage === "loading" && instancesPage.data.length === 0
-      : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length === 0
+    view === "assignments"
+      ? statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length === 0
+      : statusInstancesPage === "loading" && instancesPage.data.length === 0
 
   const isFetchingCurrent =
-    setupTab === "instances"
-      ? statusInstancesPage === "loading" && instancesPage.data.length > 0
-      : statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length > 0
+    view === "assignments"
+      ? statusPatternAssignmentsPage === "loading" && patternAssignmentsPage.data.length > 0
+      : statusInstancesPage === "loading" && instancesPage.data.length > 0
 
   return (
     <SidebarProvider
@@ -1848,33 +1855,9 @@ const Scheduling = () => {
                   Scan staffing gaps, live sessions, and policy flags before opening setup records.
                 </p>
               </div>
-              <div className="operations-mode-switch" role="tablist" aria-label="Scheduling mode">
-                {([
-                  { key: "coverage", label: "Coverage", icon: LayoutGrid },
-                  { key: "setup", label: "Setup", icon: ListChecks },
-                ] as const).map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={activeMode === item.key}
-                      onClick={() => {
-                        setActiveMode(item.key)
-                        setPagination((p) => ({ ...p, pageIndex: 0 }))
-                      }}
-                      className={cn("operations-mode-button", activeMode === item.key && "operations-mode-button-active")}
-                    >
-                      <Icon className="size-4" aria-hidden="true" />
-                      {item.label}
-                    </button>
-                  )
-                })}
-              </div>
             </div>
 
-            {activeMode === "coverage" && (
+            {view === "coverage" && (
               <>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   {coverageMetrics.map((metric) => (
@@ -1909,33 +1892,10 @@ const Scheduling = () => {
               </>
             )}
 
-            {activeMode === "setup" && (
+            {(view === "shifts" || view === "assignments") && (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border">
-                  <div className="flex items-center gap-1">
-                    {([
-                      { key: "instances", label: "Generated shifts" },
-                      { key: "assignments", label: "Pattern assignments" },
-                    ] as const).map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => {
-                          setSetupTab(tab.key)
-                          setPagination((p) => ({ ...p, pageIndex: 0 }))
-                        }}
-                        className={cn(
-                          "relative h-9 px-4 text-[13px] transition-colors",
-                          setupTab === tab.key
-                            ? "border-b-2 border-primary font-medium text-foreground"
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2 pb-2 sm:pb-0">
+                <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border pb-2">
+                  <div className="flex gap-2">
                     <NewShiftDialog
                       onCreated={() => {
                         dispatch(fetchPatterns())
@@ -1956,7 +1916,7 @@ const Scheduling = () => {
                   </div>
                 </div>
 
-                {setupTab === "instances" && (
+                {view === "shifts" && (
                   <DataTable
                     eyebrow="Setup"
                     title="Generated shifts"
@@ -1981,7 +1941,7 @@ const Scheduling = () => {
                   />
                 )}
 
-                {setupTab === "assignments" && (
+                {view === "assignments" && (
                   <DataTable
                     eyebrow="Setup"
                     title="Pattern assignments"

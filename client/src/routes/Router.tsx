@@ -30,20 +30,25 @@ const Router = () => {
       <Route element={<AuthGuard />}>
         <Route path="/auth/signout" element={<Signout />} />
         <Route element={<PermissionGuard permission="policy.read" />}>
-          <Route path="/policies" element={<Policies />} />
+          <Route path="/policies" element={<Policies tab="policies" />} />
+          <Route path="/policies/work-sites" element={<Policies tab="work-sites" />} />
         </Route>
         <Route element={<PermissionGuard permission="report.read" />}>
-          <Route path="/reports" element={<Reports />} />
+          <Route path="/reports" element={<Reports tab="hours" />} />
+          <Route path="/reports/exceptions" element={<Reports tab="exceptions" />} />
         </Route>
         <Route element={<LocationGuard />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/timesheets" element={<Timesheets />} />
           <Route path="/profile" element={<Profile />} />
           <Route element={<PermissionGuard permission="shift.create" />}>
-            <Route path="/scheduling" element={<Scheduling />} />
+            <Route path="/scheduling" element={<Scheduling view="coverage" />} />
+            <Route path="/scheduling/shifts" element={<Scheduling view="shifts" />} />
+            <Route path="/scheduling/assignments" element={<Scheduling view="assignments" />} />
           </Route>
           <Route element={<PermissionGuard permission="employee.read" />}>
-            <Route path="/team" element={<Team />} />
+            <Route path="/team" element={<Team tab="employees" />} />
+            <Route path="/team/teams" element={<Team tab="teams" />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>

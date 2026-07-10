@@ -118,14 +118,14 @@ function toggleId(ids: string[], id: string) {
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 }
 
-function TeamPage() {
+function TeamPage({ tab = "employees" }: { tab?: Tab }) {
   const dispatch = useAppDispatch()
   const employees = useAppSelector((state) => state.employeeManagement.employees)
   const teams = useAppSelector((state) => state.employeeManagement.teams)
   const employeesPage = useAppSelector((state) => state.employeeManagement.employeesPage)
   const teamsPage = useAppSelector((state) => state.employeeManagement.teamsPage)
   const status = useAppSelector((state) => state.employeeManagement.status)
-  const [activeTab, setActiveTab] = React.useState<Tab>("employees")
+  const activeTab = tab
   const [query, setQuery] = React.useState("")
   const [debouncedQuery, setDebouncedQuery] = React.useState("")
   const [employeesPagination, setEmployeesPagination] = React.useState<PaginationState>({
@@ -341,43 +341,23 @@ function TeamPage() {
               <SummaryCard label="Pending" value={pendingEmployees} description="awaiting onboarding" />
             </div>
 
-            <div className="flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-center gap-1">
-                {(["employees", "teams"] as Tab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      "relative h-9 px-4 text-[13px] capitalize transition-colors",
-                      activeTab === tab
-                        ? "border-b-2 border-primary font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 pb-3 sm:pb-2">
-                {activeTab === "employees" ? (
-                  <div className="relative">
-                    <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search team"
-                      className="h-11 w-64 rounded-xs pl-9 text-sm"
-                    />
-                  </div>
-                ) : null}
-                {activeTab === "employees" ? (
-                  <InviteEmployeeDialog employees={employees} teams={teams} onMutated={refreshCurrentPages} />
-                ) : (
-                  <TeamDialog employees={employees} mode="create" onMutated={refreshCurrentPages} />
-                )}
-              </div>
+            <div className="flex items-center justify-end gap-2 border-b border-border pb-3">
+              {activeTab === "employees" ? (
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search team"
+                    className="h-11 w-64 rounded-xs pl-9 text-sm"
+                  />
+                </div>
+              ) : null}
+              {activeTab === "employees" ? (
+                <InviteEmployeeDialog employees={employees} teams={teams} onMutated={refreshCurrentPages} />
+              ) : (
+                <TeamDialog employees={employees} mode="create" onMutated={refreshCurrentPages} />
+              )}
             </div>
 
             {activeTab === "employees" ? (

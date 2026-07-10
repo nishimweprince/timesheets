@@ -24,7 +24,6 @@ import {
   type HoursByEmployeeParams,
   type HoursByEmployeeRow,
 } from "@/lib/api/reports.api"
-import { cn } from "@/lib/utils"
 import { fetchExceptionsReport, fetchHoursByEmployee } from "@/states/features/reports.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 
@@ -112,13 +111,13 @@ async function fetchAllExceptions(
   return rows
 }
 
-const Reports = () => {
+const Reports = ({ tab = "hours" }: { tab?: Tab }) => {
   const dispatch = useAppDispatch()
   const hoursPage = useAppSelector((state) => state.reports.hoursByEmployee)
   const exceptionsPage = useAppSelector((state) => state.reports.exceptions)
   const status = useAppSelector((state) => state.reports.status)
 
-  const [activeTab, setActiveTab] = React.useState<Tab>("hours")
+  const activeTab = tab
   const [hoursDay, setHoursDay] = React.useState<Date>(() => new Date())
   const [reportModalOpen, setReportModalOpen] = React.useState(false)
   const [reportStartDate, setReportStartDate] = React.useState<Date | undefined>(() => new Date())
@@ -431,25 +430,7 @@ const Reports = () => {
               />
             </div>
 
-            <div className="flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-center gap-1">
-                {(["hours", "exceptions"] as Tab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      "relative h-9 px-4 text-[13px] transition-colors",
-                      activeTab === tab
-                        ? "border-b-2 border-primary font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {tab === "hours" ? "Hours by employee" : "Exceptions"}
-                  </button>
-                ))}
-              </div>
-
+            <div className="flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-end">
               <div className="flex flex-wrap items-end gap-2 pb-3 sm:pb-2">
                 {activeTab === "exceptions" ? (
                   <>

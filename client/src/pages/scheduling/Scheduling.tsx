@@ -47,6 +47,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Modal from "@/components/reusable/cards/Modal"
+import ConfirmationModal from "@/components/reusable/cards/ConfirmationModal"
 import Combobox from "@/components/reusable/inputs/Combobox"
 import DatePicker from "@/components/reusable/inputs/DatePicker"
 import { DataTable } from "@/components/reusable/tables"
@@ -54,14 +55,19 @@ import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import {
   approveSession,
+  closeSessionReviewConfirm,
   fetchExceptions,
   fetchOrgSessions,
   lockSession,
+  openSessionReviewConfirm,
   rejectSession,
 } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
   cancelInstance,
+  cancelPatternAssignment,
+  closeCancelInstanceConfirm,
+  closeRemoveAssignmentConfirm,
   createPatternAssignment,
   createPattern,
   fetchPatternAssignments,
@@ -69,6 +75,8 @@ import {
   fetchInstances,
   fetchInstancesPage,
   fetchPatterns,
+  openCancelInstanceConfirm,
+  openRemoveAssignmentConfirm,
   overrideInstance,
 } from "@/states/features/scheduling.slice"
 import {
@@ -541,15 +549,6 @@ function ShiftDetailsContent({
     instance.status !== ShiftInstanceStatus.CANCELLED &&
     instance.status !== ShiftInstanceStatus.COMPLETED
 
-  const handleCancelShift = async () => {
-    try {
-      await dispatch(cancelInstance(instance.id)).unwrap()
-      onDone()
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
@@ -713,7 +712,7 @@ function ShiftDetailsContent({
             type="button"
             variant="destructive"
             size="sm"
-            onClick={handleCancelShift}
+            onClick={() => dispatch(openCancelInstanceConfirm(instance))}
             disabled={isCancelling}
           >
             {isCancelling ? "Cancelling…" : "Cancel shift"}
@@ -1290,6 +1289,7 @@ function ReviewQueue({
 }) {
   const dispatch = useAppDispatch()
   const isReviewing = useAppSelector((s) => s.attendance.status.review === "loading")
+  const reviewConfirm = useAppSelector((s) => s.attendance.confirmSessionReview)
   const pendingSessions = sessions.filter(
     (session) =>
       session.status === WorkSessionStatus.PENDING_REVIEW ||
@@ -1306,9 +1306,31 @@ function ReviewQueue({
       else await dispatch(lockSession(sessionId)).unwrap()
       dispatch(fetchOrgSessions())
       dispatch(fetchExceptions())
+      dispatch(closeSessionReviewConfirm())
     } catch (err) {
       showApiErrorToast(err)
     }
+  }
+
+  const reviewCopy = {
+    approve: {
+      heading: "Approve session",
+      description: "Approve this work session? The employee's recorded time will be marked as approved.",
+      confirmLabel: "Approve session",
+      confirmVariant: "default" as const,
+    },
+    reject: {
+      heading: "Reject session",
+      description: "Reject this work session? The employee will need to resubmit their time.",
+      confirmLabel: "Reject session",
+      confirmVariant: "destructive" as const,
+    },
+    lock: {
+      heading: "Lock session",
+      description: "Lock this work session? Locked sessions are finalized and can no longer be edited.",
+      confirmLabel: "Lock session",
+      confirmVariant: "destructive" as const,
+    },
   }
 
   return (
@@ -1343,7 +1365,7 @@ function ReviewQueue({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => handleReview("approve", session.id)}
+                      onClick={() => dispatch(openSessionReviewConfirm({ action: "approve", session }))}
                       disabled={isReviewing || session.status === WorkSessionStatus.APPROVED}
                     >
                       Approve
@@ -1352,7 +1374,7 @@ function ReviewQueue({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleReview("reject", session.id)}
+                      onClick={() => dispatch(openSessionReviewConfirm({ action: "reject", session }))}
                       disabled={isReviewing}
                     >
                       Reject
@@ -1370,7 +1392,7 @@ function ReviewQueue({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => handleReview("lock", session.id)}
+                      onClick={() => dispatch(openSessionReviewConfirm({ action: "lock", session }))}
                       disabled={isReviewing}
                     >
                       Lock
@@ -1398,6 +1420,20 @@ function ReviewQueue({
           </div>
         </div>
       </CardContent>
+      {reviewConfirm.action && reviewConfirm.session && (
+        <ConfirmationModal
+          isOpen={reviewConfirm.isOpen}
+          onClose={() => dispatch(closeSessionReviewConfirm())}
+          onConfirm={() =>
+            handleReview(reviewConfirm.action!, reviewConfirm.session!.id)
+          }
+          isLoading={isReviewing}
+          heading={reviewCopy[reviewConfirm.action].heading}
+          description={reviewCopy[reviewConfirm.action].description}
+          confirmLabel={reviewCopy[reviewConfirm.action].confirmLabel}
+          confirmVariant={reviewCopy[reviewConfirm.action].confirmVariant}
+        />
+      )}
     </Card>
   )
 }
@@ -1415,6 +1451,12 @@ const Scheduling = () => {
   const orgSessions = useAppSelector((s) => s.attendance.orgSessions)
   const exceptions = useAppSelector((s) => s.attendance.exceptions)
   const employees = useAppSelector((s) => s.employeeManagement.employees)
+  const cancelInstanceConfirm = useAppSelector((s) => s.scheduling.confirmCancelInstance)
+  const removeAssignmentConfirm = useAppSelector((s) => s.scheduling.confirmRemoveAssignment)
+  const isCancellingInstance = useAppSelector((s) => s.scheduling.status.cancelInstance === "loading")
+  const isRemovingAssignment = useAppSelector(
+    (s) => s.scheduling.status.cancelPatternAssignment === "loading",
+  )
 
   const [activeMode, setActiveMode] = React.useState<Mode>("coverage")
   const [setupTab, setSetupTab] = React.useState<SetupTab>("instances")
@@ -1559,10 +1601,29 @@ const Scheduling = () => {
     dispatch(fetchInstancesPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }))
   }
 
-  const handleCancel = async (instance: ShiftInstance) => {
+  const handleConfirmCancelInstance = async () => {
+    const target = cancelInstanceConfirm.target
+    if (!target) return
     try {
-      await dispatch(cancelInstance(instance.id)).unwrap()
+      await dispatch(cancelInstance(target.id)).unwrap()
       refreshInstances()
+      if (overrideTarget?.id === target.id) setOverrideTarget(null)
+      dispatch(closeCancelInstanceConfirm())
+    } catch (err) {
+      showApiErrorToast(err)
+    }
+  }
+
+  const handleConfirmRemoveAssignment = async () => {
+    const target = removeAssignmentConfirm.target
+    if (!target) return
+    try {
+      await dispatch(cancelPatternAssignment(target.id)).unwrap()
+      dispatch(fetchPatternAssignments())
+      dispatch(
+        fetchPatternAssignmentsPage({ page: pagination.pageIndex + 1, pageSize: pagination.pageSize }),
+      )
+      dispatch(closeRemoveAssignmentConfirm())
     } catch (err) {
       showApiErrorToast(err)
     }
@@ -1641,7 +1702,7 @@ const Scheduling = () => {
                 <DropdownMenuItem onSelect={() => setOverrideTarget(instance)}>
                   Override times…
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleCancel(instance)}>
+                <DropdownMenuItem onSelect={() => dispatch(openCancelInstanceConfirm(instance))}>
                   Cancel
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1725,8 +1786,33 @@ const Scheduling = () => {
         ),
         meta: { align: "right", width: "9rem", cellClassName: "py-3" },
       },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const assignment = row.original
+          if (assignment.status !== ShiftAssignmentStatus.ACTIVE) {
+            return null
+          }
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-xs" aria-label="Row actions">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => dispatch(openRemoveAssignmentConfirm(assignment))}>
+                  Remove
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+        meta: { align: "right", width: "4rem", cellClassName: "py-3" },
+      },
     ],
-    [employeeByMembershipId, patternsById],
+    [dispatch, employeeByMembershipId, patternsById],
   )
 
   const isLoadingCurrent =
@@ -1934,6 +2020,26 @@ const Scheduling = () => {
                 refreshInstances()
                 setOverrideTarget(null)
               }}
+            />
+
+            <ConfirmationModal
+              isOpen={cancelInstanceConfirm.isOpen}
+              onClose={() => dispatch(closeCancelInstanceConfirm())}
+              onConfirm={handleConfirmCancelInstance}
+              isLoading={isCancellingInstance}
+              heading="Cancel shift"
+              description="Cancel this shift? Employees assigned to it will no longer be scheduled."
+              confirmLabel="Cancel shift"
+            />
+
+            <ConfirmationModal
+              isOpen={removeAssignmentConfirm.isOpen}
+              onClose={() => dispatch(closeRemoveAssignmentConfirm())}
+              onConfirm={handleConfirmRemoveAssignment}
+              isLoading={isRemovingAssignment}
+              heading="Remove assignment"
+              description="Remove this employee from the shift pattern? They will no longer be assigned to its shifts."
+              confirmLabel="Remove assignment"
             />
           </div>
         </div>

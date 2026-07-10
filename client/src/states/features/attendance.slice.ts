@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import {
   attendanceApi,
   type AttendanceException,
@@ -34,6 +34,11 @@ interface AttendanceState {
     break: LoadStatus
     review: LoadStatus
   }
+  confirmSessionReview: {
+    isOpen: boolean
+    action: 'approve' | 'reject' | 'lock' | null
+    session: WorkSession | null
+  }
 }
 
 const initialState: AttendanceState = {
@@ -55,6 +60,7 @@ const initialState: AttendanceState = {
     break: 'idle',
     review: 'idle',
   },
+  confirmSessionReview: { isOpen: false, action: null, session: null },
 }
 
 export const fetchCurrentSession = createAsyncThunk('attendance/fetchCurrentSession', () =>
@@ -119,6 +125,19 @@ const attendanceSlice = createSlice({
   reducers: {
     clearCurrentSession: (state) => {
       state.currentSession = null
+    },
+    openSessionReviewConfirm: (
+      state,
+      action: PayloadAction<{ action: 'approve' | 'reject' | 'lock'; session: WorkSession }>,
+    ) => {
+      state.confirmSessionReview = {
+        isOpen: true,
+        action: action.payload.action,
+        session: action.payload.session,
+      }
+    },
+    closeSessionReviewConfirm: (state) => {
+      state.confirmSessionReview = { isOpen: false, action: null, session: null }
     },
   },
   extraReducers: (builder) => {
@@ -219,5 +238,6 @@ const attendanceSlice = createSlice({
   },
 })
 
-export const { clearCurrentSession } = attendanceSlice.actions
+export const { clearCurrentSession, openSessionReviewConfirm, closeSessionReviewConfirm } =
+  attendanceSlice.actions
 export default attendanceSlice.reducer

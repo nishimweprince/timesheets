@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import {
   schedulingApi,
   type CreateShiftAssignmentPayload,
@@ -60,6 +60,8 @@ interface SchedulingState {
     updatePatternAssignment: LoadStatus
     cancelPatternAssignment: LoadStatus
   }
+  confirmCancelInstance: { isOpen: boolean; target: ShiftInstance | null }
+  confirmRemoveAssignment: { isOpen: boolean; target: ShiftPatternAssignment | null }
 }
 
 const initialState: SchedulingState = {
@@ -93,6 +95,8 @@ const initialState: SchedulingState = {
     updatePatternAssignment: 'idle',
     cancelPatternAssignment: 'idle',
   },
+  confirmCancelInstance: { isOpen: false, target: null },
+  confirmRemoveAssignment: { isOpen: false, target: null },
 }
 
 export const fetchPatterns = createAsyncThunk('scheduling/fetchPatterns', async () => {
@@ -197,7 +201,20 @@ export const cancelPatternAssignment = createAsyncThunk(
 const schedulingSlice = createSlice({
   name: 'scheduling',
   initialState,
-  reducers: {},
+  reducers: {
+    openCancelInstanceConfirm: (state, action: PayloadAction<ShiftInstance>) => {
+      state.confirmCancelInstance = { isOpen: true, target: action.payload }
+    },
+    closeCancelInstanceConfirm: (state) => {
+      state.confirmCancelInstance = { isOpen: false, target: null }
+    },
+    openRemoveAssignmentConfirm: (state, action: PayloadAction<ShiftPatternAssignment>) => {
+      state.confirmRemoveAssignment = { isOpen: true, target: action.payload }
+    },
+    closeRemoveAssignmentConfirm: (state) => {
+      state.confirmRemoveAssignment = { isOpen: false, target: null }
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchPatterns.pending, (state) => { state.status.patterns = 'loading' })
@@ -376,5 +393,12 @@ const schedulingSlice = createSlice({
       .addCase(cancelPatternAssignment.rejected, (state) => { state.status.cancelPatternAssignment = 'error' })
   },
 })
+
+export const {
+  openCancelInstanceConfirm,
+  closeCancelInstanceConfirm,
+  openRemoveAssignmentConfirm,
+  closeRemoveAssignmentConfirm,
+} = schedulingSlice.actions
 
 export default schedulingSlice.reducer

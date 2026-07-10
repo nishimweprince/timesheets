@@ -43,6 +43,7 @@ const Router = () => {
           <Route path="/profile" element={<Profile />} />
           <Route element={<PermissionGuard permission="shift.create" />}>
             <Route path="/scheduling" element={<Scheduling view="coverage" />} />
+            <Route path="/scheduling/clock-ins" element={<Scheduling view="clock-ins" />} />
             <Route path="/scheduling/shifts" element={<Scheduling view="shifts" />} />
             <Route path="/scheduling/assignments" element={<Scheduling view="assignments" />} />
           </Route>

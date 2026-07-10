@@ -5,7 +5,9 @@ import {
   type AttendancePolicyRules,
   type ClockPayload,
   type HistoryQueryParams,
+  type OrgSessionsParams,
   type WorkSession,
+  type WorkSessionDetail,
 } from '@/lib/api/attendance.api'
 import type { PaginatedResult } from '@/lib/api/pagination'
 
@@ -18,16 +20,21 @@ interface AttendanceState {
   history: PaginatedResult<WorkSession>
   historySummary: WorkSession[]
   orgSessions: WorkSession[]
+  dayClockIns: WorkSession[]
+  sessionDetail: WorkSessionDetail | null
   exceptions: AttendanceException[]
   effectivePolicy: AttendancePolicyRules | null
   latestRequests: {
     history?: string
+    dayClockIns?: string
   }
   status: {
     currentSession: LoadStatus
     history: LoadStatus
     historySummary: LoadStatus
     orgSessions: LoadStatus
+    dayClockIns: LoadStatus
+    sessionDetail: LoadStatus
     exceptions: LoadStatus
     clockIn: LoadStatus
     clockOut: LoadStatus
@@ -46,6 +53,8 @@ const initialState: AttendanceState = {
   history: emptyHistoryPage,
   historySummary: [],
   orgSessions: [],
+  dayClockIns: [],
+  sessionDetail: null,
   exceptions: [],
   effectivePolicy: null,
   latestRequests: {},
@@ -54,6 +63,8 @@ const initialState: AttendanceState = {
     history: 'idle',
     historySummary: 'idle',
     orgSessions: 'idle',
+    dayClockIns: 'idle',
+    sessionDetail: 'idle',
     exceptions: 'idle',
     clockIn: 'idle',
     clockOut: 'idle',
@@ -85,6 +96,17 @@ export const fetchHistorySummary = createAsyncThunk('attendance/fetchHistorySumm
 
 export const fetchOrgSessions = createAsyncThunk('attendance/fetchOrgSessions', () =>
   attendanceApi.orgSessions()
+)
+
+// Day-scoped clock-ins for the admin Clock-ins view. Kept separate from
+// `orgSessions` so the unfiltered coverage/review-queue list stays intact.
+export const fetchDayClockIns = createAsyncThunk(
+  'attendance/fetchDayClockIns',
+  (params: OrgSessionsParams) => attendanceApi.orgSessions(params)
+)
+
+export const fetchSessionDetail = createAsyncThunk('attendance/fetchSessionDetail', (id: string) =>
+  attendanceApi.sessionDetail(id)
 )
 
 export const fetchExceptions = createAsyncThunk('attendance/fetchExceptions', () =>
@@ -139,6 +161,10 @@ const attendanceSlice = createSlice({
     closeSessionReviewConfirm: (state) => {
       state.confirmSessionReview = { isOpen: false, action: null, session: null }
     },
+    clearSessionDetail: (state) => {
+      state.sessionDetail = null
+      state.status.sessionDetail = 'idle'
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -182,6 +208,32 @@ const attendanceSlice = createSlice({
         state.orgSessions = action.payload
       })
       .addCase(fetchOrgSessions.rejected, (state) => { state.status.orgSessions = 'error' })
+
+      .addCase(fetchDayClockIns.pending, (state, action) => {
+        state.status.dayClockIns = 'loading'
+        state.latestRequests.dayClockIns = action.meta.requestId
+      })
+      .addCase(fetchDayClockIns.fulfilled, (state, action) => {
+        if (state.latestRequests.dayClockIns !== action.meta.requestId) return
+        state.status.dayClockIns = 'idle'
+        state.dayClockIns = action.payload
+        state.latestRequests.dayClockIns = undefined
+      })
+      .addCase(fetchDayClockIns.rejected, (state, action) => {
+        if (state.latestRequests.dayClockIns !== action.meta.requestId) return
+        state.status.dayClockIns = 'error'
+        state.latestRequests.dayClockIns = undefined
+      })
+
+      .addCase(fetchSessionDetail.pending, (state) => {
+        state.status.sessionDetail = 'loading'
+        state.sessionDetail = null
+      })
+      .addCase(fetchSessionDetail.fulfilled, (state, action) => {
+        state.status.sessionDetail = 'idle'
+        state.sessionDetail = action.payload
+      })
+      .addCase(fetchSessionDetail.rejected, (state) => { state.status.sessionDetail = 'error' })
 
       .addCase(fetchExceptions.pending, (state) => { state.status.exceptions = 'loading' })
       .addCase(fetchExceptions.fulfilled, (state, action) => {
@@ -238,6 +290,10 @@ const attendanceSlice = createSlice({
   },
 })
 
-export const { clearCurrentSession, openSessionReviewConfirm, closeSessionReviewConfirm } =
-  attendanceSlice.actions
+export const {
+  clearCurrentSession,
+  openSessionReviewConfirm,
+  closeSessionReviewConfirm,
+  clearSessionDetail,
+} = attendanceSlice.actions
 export default attendanceSlice.reducer

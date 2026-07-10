@@ -13,6 +13,7 @@ import {
   FileTextIcon,
   HomeIcon,
   LayoutGridIcon,
+  LogInIcon,
   MapPinIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
@@ -72,6 +73,7 @@ const operationsNav: NavItem[] = [
     icon: CalendarIcon,
     items: [
       { title: "Coverage", url: "/scheduling", icon: LayoutGridIcon },
+      { title: "Clock-ins", url: "/scheduling/clock-ins", icon: LogInIcon },
       { title: "Generated Shifts", url: "/scheduling/shifts", icon: CalendarClockIcon },
       { title: "Pattern Assignments", url: "/scheduling/assignments", icon: ClipboardListIcon },
     ],

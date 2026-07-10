@@ -75,4 +75,14 @@ export class MediaService {
     });
     return { signedUrl: this.cloudinary.signedViewUrl(asset.publicId), expiresInSeconds: 300 };
   }
+
+  // Resolves a short-lived signed view URL for an org-owned verified asset without a
+  // per-user ownership check. Intended for internal callers that already enforce an
+  // organization-scoped permission (e.g. attendance.read.organization), such as the
+  // admin clock-in session detail view. Returns null when the asset is missing or unverified.
+  async resolveOrgViewUrl(organizationId: string, mediaAssetId: string): Promise<string | null> {
+    const asset = await this.mediaAssets.findOne({ where: { id: mediaAssetId, organizationId } });
+    if (!asset || asset.status !== MediaAssetStatus.VERIFIED) return null;
+    return this.cloudinary.signedViewUrl(asset.publicId);
+  }
 }

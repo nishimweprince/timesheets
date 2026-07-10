@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { Between, DataSource, In, Repository } from 'typeorm';
 import { PaginatedResult, paginate } from '../../common/types/paginated-result';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
 import { AuditLayer } from '../audit/entities/audit-log.entity';
@@ -19,6 +19,39 @@ const HISTORY_STATUS_GROUP_MAP: Record<HistoryStatusGroup, WorkSessionStatus[]> 
   Draft: [WorkSessionStatus.REJECTED, WorkSessionStatus.CANCELLED],
   Pending: [WorkSessionStatus.OPEN, WorkSessionStatus.CLOCKED_OUT, WorkSessionStatus.PENDING_REVIEW]
 };
+
+export interface AttendanceEventDetail {
+  id: string;
+  eventType: AttendanceEventType;
+  eventSource: string;
+  serverReceivedAt: Date;
+  clientReportedAt: Date | null;
+  clientTimezone: string | null;
+  clientUtcOffsetMinutes: number | null;
+  location: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters: number | null;
+    source: string | null;
+    capturedAt: Date | null;
+    permissionState: string | null;
+  } | null;
+  geofenceResult: string | null;
+  matchedWorkSiteId: string | null;
+  ipAddress: string | null;
+  networkContext: Record<string, unknown> | null;
+  deviceContext: Record<string, unknown> | null;
+  cameraRequired: boolean;
+  photoUrl: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface WorkSessionDetail {
+  session: WorkSession;
+  events: AttendanceEventDetail[];
+  exceptions: AttendanceException[];
+}
 
 @Injectable()
 export class AttendanceService {
@@ -54,8 +87,66 @@ export class AttendanceService {
     return paginate(data, total, page, pageSize);
   }
 
-  sessionsForOrg(user: RequestUser): Promise<WorkSession[]> {
-    return this.sessions.find({ where: { organizationId: user.organizationId }, order: { actualClockInAt: 'DESC' }, take: 100 });
+  sessionsForOrg(user: RequestUser, range?: { from?: string; to?: string }): Promise<WorkSession[]> {
+    const filtered = range?.from && range?.to;
+    return this.sessions.find({
+      where: {
+        organizationId: user.organizationId,
+        ...(filtered ? { actualClockInAt: Between(new Date(range!.from!), new Date(range!.to!)) } : {})
+      },
+      order: { actualClockInAt: 'DESC' },
+      take: filtered ? 500 : 100
+    });
+  }
+
+  async sessionDetail(user: RequestUser, id: string): Promise<WorkSessionDetail> {
+    const session = await this.sessions.findOne({ where: { id, organizationId: user.organizationId } });
+    if (!session) throw new NotFoundException('Work session not found');
+
+    const eventRepo = this.dataSource.getRepository(AttendanceEvent);
+    const events = await eventRepo.find({
+      where: { organizationId: user.organizationId, workSessionId: id },
+      order: { serverReceivedAt: 'ASC' }
+    });
+    const exceptions = await this.exceptions.find({
+      where: { organizationId: user.organizationId, workSessionId: id },
+      order: { createdAt: 'ASC' }
+    });
+
+    const eventDetails = await Promise.all(
+      events.map(async (event) => ({
+        id: event.id,
+        eventType: event.eventType,
+        eventSource: event.eventSource,
+        serverReceivedAt: event.serverReceivedAt,
+        clientReportedAt: event.clientReportedAt,
+        clientTimezone: event.clientTimezone,
+        clientUtcOffsetMinutes: event.clientUtcOffsetMinutes,
+        location: event.locationPoint
+          ? {
+              latitude: event.locationPoint.coordinates[1],
+              longitude: event.locationPoint.coordinates[0],
+              accuracyMeters: event.locationAccuracyMeters,
+              source: event.locationSource,
+              capturedAt: event.locationCapturedAt,
+              permissionState: event.locationPermissionState
+            }
+          : null,
+        geofenceResult: event.geofenceResult,
+        matchedWorkSiteId: event.matchedWorkSiteId,
+        ipAddress: event.ipAddress,
+        networkContext: event.networkContext,
+        deviceContext: event.deviceContext,
+        cameraRequired: event.cameraRequired,
+        photoUrl: event.cameraEvidenceId
+          ? await this.mediaService.resolveOrgViewUrl(user.organizationId, event.cameraEvidenceId)
+          : null,
+        reason: event.reason,
+        metadata: event.metadata
+      }))
+    );
+
+    return { session, events: eventDetails, exceptions };
   }
 
   exceptionsForOrg(user: RequestUser): Promise<AttendanceException[]> {

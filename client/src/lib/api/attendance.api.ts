@@ -51,6 +51,44 @@ export interface AttendanceException {
   createdAt: string
 }
 
+export interface AttendanceEventDetail {
+  id: string
+  eventType: string
+  eventSource: string
+  serverReceivedAt: string
+  clientReportedAt: string | null
+  clientTimezone: string | null
+  clientUtcOffsetMinutes: number | null
+  location: {
+    latitude: number
+    longitude: number
+    accuracyMeters: number | null
+    source: string | null
+    capturedAt: string | null
+    permissionState: string | null
+  } | null
+  geofenceResult: string | null
+  matchedWorkSiteId: string | null
+  ipAddress: string | null
+  networkContext: Record<string, unknown> | null
+  deviceContext: Record<string, unknown> | null
+  cameraRequired: boolean
+  photoUrl: string | null
+  reason: string | null
+  metadata: Record<string, unknown> | null
+}
+
+export interface WorkSessionDetail {
+  session: WorkSession
+  events: AttendanceEventDetail[]
+  exceptions: AttendanceException[]
+}
+
+export interface OrgSessionsParams {
+  from?: string
+  to?: string
+}
+
 export interface ClockPayload {
   requestedShiftAssignmentId?: string
   requestedShiftInstanceId?: string
@@ -130,12 +168,16 @@ export const attendanceApi = {
     })
   },
 
-  orgSessions(): Promise<WorkSession[]> {
-    return apiRequest<WorkSession[]>('/attendance/sessions')
+  orgSessions(params?: OrgSessionsParams): Promise<WorkSession[]> {
+    return apiRequest<WorkSession[]>(`/attendance/sessions${toQueryString({ ...params })}`)
   },
 
   session(id: string): Promise<WorkSession | null> {
     return apiRequest<WorkSession | null>(`/attendance/sessions/${id}`)
+  },
+
+  sessionDetail(id: string): Promise<WorkSessionDetail> {
+    return apiRequest<WorkSessionDetail>(`/attendance/sessions/${id}/detail`)
   },
 
   approveSession(id: string): Promise<WorkSession> {

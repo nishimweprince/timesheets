@@ -3,7 +3,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
-import { ClockDto, HistoryQueryDto } from './dto/attendance.dto';
+import { ClockDto, HistoryQueryDto, OrgSessionsQueryDto } from './dto/attendance.dto';
 import { AttendanceEventType } from './entities/attendance-event.entity';
 import { AttendanceService } from './attendance.service';
 
@@ -59,14 +59,20 @@ export class AttendanceController {
 
   @Get('sessions')
   @Permissions('attendance.read.organization')
-  sessions(@CurrentUser() user: RequestUser) {
-    return this.attendanceService.sessionsForOrg(user);
+  sessions(@CurrentUser() user: RequestUser, @Query() query: OrgSessionsQueryDto) {
+    return this.attendanceService.sessionsForOrg(user, query);
   }
 
   @Get('sessions/:id')
   @Permissions('attendance.read.organization')
   session(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     return this.attendanceService.sessionsForOrg(user).then((sessions) => sessions.find((session) => session.id === id) ?? null);
+  }
+
+  @Get('sessions/:id/detail')
+  @Permissions('attendance.read.organization')
+  sessionDetail(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.sessionDetail(user, id);
   }
 
   @Post('sessions/:id/approve')

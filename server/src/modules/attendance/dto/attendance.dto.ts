@@ -11,6 +11,16 @@ export class HistoryQueryDto extends PaginationQueryDto {
   status?: HistoryStatusGroup;
 }
 
+export class OrgSessionsQueryDto {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
+
 export class LocationDto {
   @IsLatitude()
   @IsNumber()

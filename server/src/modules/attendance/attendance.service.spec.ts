@@ -186,6 +186,59 @@ describe('AttendanceService location requirements', () => {
     await expect(service.lockSession(user, session.id)).rejects.toBeInstanceOf(BadRequestException);
     expect(sessions.save).not.toHaveBeenCalled();
   });
+
+  it('hydrates a session detail with events, resolved photo url, and location', async () => {
+    const session = {
+      id: 'work-session-id',
+      organizationId: user.organizationId,
+      employeeMembershipId: user.membershipId,
+      status: WorkSessionStatus.CLOCKED_OUT
+    } as WorkSession;
+    const event = {
+      id: 'event-id',
+      eventType: 'CLOCK_IN',
+      eventSource: 'WEB',
+      serverReceivedAt: new Date('2026-06-30T08:00:00.000Z'),
+      clientReportedAt: null,
+      clientTimezone: null,
+      clientUtcOffsetMinutes: null,
+      locationPoint: { type: 'Point', coordinates: [-93.265, 44.9778] },
+      locationAccuracyMeters: 12,
+      locationSource: 'browser',
+      locationCapturedAt: null,
+      locationPermissionState: 'granted',
+      geofenceResult: 'NOT_EVALUATED',
+      matchedWorkSiteId: null,
+      ipAddress: '127.0.0.1',
+      networkContext: null,
+      deviceContext: { platform: 'iOS' },
+      cameraRequired: true,
+      cameraEvidenceId: 'media-asset-id',
+      reason: null,
+      metadata: null
+    };
+    const sessions = { findOne: jest.fn().mockResolvedValue(session) };
+    const exceptions = { find: jest.fn().mockResolvedValue([]) };
+    const eventRepo = { find: jest.fn().mockResolvedValue([event]) };
+    const dataSource = { getRepository: jest.fn().mockReturnValue(eventRepo) };
+    const mediaService = { resolveOrgViewUrl: jest.fn().mockResolvedValue('https://signed.example/photo') };
+    const service = createService(dataSource, { sessions, exceptions, mediaService });
+
+    const detail = await service.sessionDetail(user, session.id);
+
+    expect(detail.session).toBe(session);
+    expect(detail.events).toHaveLength(1);
+    expect(detail.events[0].location).toEqual({
+      latitude: 44.9778,
+      longitude: -93.265,
+      accuracyMeters: 12,
+      source: 'browser',
+      capturedAt: null,
+      permissionState: 'granted'
+    });
+    expect(detail.events[0].photoUrl).toBe('https://signed.example/photo');
+    expect(mediaService.resolveOrgViewUrl).toHaveBeenCalledWith(user.organizationId, 'media-asset-id');
+  });
 });
 
 function createService(
@@ -194,6 +247,7 @@ function createService(
     sessions?: object
     exceptions?: object
     auditService?: object
+    mediaService?: object
   } = {}
 ): AttendanceService {
   const policiesService = {
@@ -207,7 +261,7 @@ function createService(
 
   return new AttendanceService(
     dataSource as never,
-    {} as never,
+    (overrides.mediaService ?? {}) as never,
     policiesService as never,
     schedulingService as never,
     (overrides.auditService ?? auditService) as never,

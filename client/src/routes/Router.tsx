@@ -12,6 +12,7 @@ import Signout from '../pages/auth/Signout'
 import Dashboard from '../pages/Dashboard'
 import Timesheets from '../pages/timesheets/Timesheets'
 import Scheduling from '../pages/scheduling/Scheduling'
+import ClockInDetailPage from '../pages/scheduling/ClockInDetailPage'
 import Team from '../pages/team/Team'
 import Policies from '../pages/policies/Policies'
 import Reports from '../pages/reports/Reports'
@@ -44,6 +45,7 @@ const Router = () => {
           <Route element={<PermissionGuard permission="shift.create" />}>
             <Route path="/scheduling" element={<Scheduling view="coverage" />} />
             <Route path="/scheduling/clock-ins" element={<Scheduling view="clock-ins" />} />
+            <Route path="/scheduling/clock-ins/:sessionId" element={<ClockInDetailPage />} />
             <Route path="/scheduling/shifts" element={<Scheduling view="shifts" />} />
             <Route path="/scheduling/assignments" element={<Scheduling view="assignments" />} />
           </Route>

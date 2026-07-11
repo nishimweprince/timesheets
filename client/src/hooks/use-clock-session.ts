@@ -12,6 +12,7 @@ import {
 } from "@/states/features/attendance.slice"
 import { WorkSessionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
+import { captureDeviceContext } from "@/lib/device"
 import { setLocation } from "@/states/features/location.slice"
 
 export interface SelectedShiftContext {
@@ -74,20 +75,39 @@ export function useClockSession(enabled = true, selectedShiftContext?: SelectedS
       )
     })
 
+  const buildClockPayload = (
+    location: {
+      latitude: number
+      longitude: number
+      accuracyMeters: number
+      capturedAt: string
+    },
+    extras?: {
+      cameraEvidenceId?: string
+      selectedShift?: SelectedShiftContext
+    },
+  ) => ({
+    clientReportedAt: new Date().toISOString(),
+    clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
+    location: { ...location, source: "browser", permissionState: "granted" as const },
+    device: captureDeviceContext(),
+    ...(extras?.selectedShift ?? {}),
+    ...(extras?.cameraEvidenceId ? { cameraEvidenceId: extras.cameraEvidenceId } : {}),
+  })
+
   const handleClockIn = async (cameraEvidenceId?: string) => {
     if (!enabled) return
 
     try {
       const location = await getLocation()
       await dispatch(
-        clockIn({
-          clientReportedAt: new Date().toISOString(),
-          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-          location: { ...location, source: "browser", permissionState: "granted" },
-          ...(selectedShiftContext ?? {}),
-          ...(cameraEvidenceId ? { cameraEvidenceId } : {}),
-        })
+        clockIn(
+          buildClockPayload(location, {
+            cameraEvidenceId,
+            selectedShift: selectedShiftContext,
+          }),
+        ),
       ).unwrap()
       dispatch(fetchCurrentSession())
       dispatch(fetchHistory({ page: 1, pageSize: 10 }))
@@ -102,13 +122,7 @@ export function useClockSession(enabled = true, selectedShiftContext?: SelectedS
     try {
       const location = await getLocation()
       await dispatch(
-        clockOut({
-          clientReportedAt: new Date().toISOString(),
-          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-          location: { ...location, source: "browser", permissionState: "granted" },
-          ...(cameraEvidenceId ? { cameraEvidenceId } : {}),
-        })
+        clockOut(buildClockPayload(location, { cameraEvidenceId })),
       ).unwrap()
       dispatch(fetchCurrentSession())
       dispatch(fetchHistory({ page: 1, pageSize: 10 }))
@@ -123,12 +137,7 @@ export function useClockSession(enabled = true, selectedShiftContext?: SelectedS
     try {
       const location = await getLocation()
       await dispatch(
-        (action === "start" ? startBreak : endBreak)({
-          clientReportedAt: new Date().toISOString(),
-          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          clientUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-          location: { ...location, source: "browser", permissionState: "granted" },
-        })
+        (action === "start" ? startBreak : endBreak)(buildClockPayload(location)),
       ).unwrap()
       dispatch(fetchCurrentSession())
       dispatch(fetchHistory({ page: 1, pageSize: 10 }))

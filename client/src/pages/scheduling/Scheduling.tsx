@@ -54,12 +54,10 @@ import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import {
   approveSession,
-  clearSessionDetail,
   closeSessionReviewConfirm,
   fetchDayClockIns,
   fetchExceptions,
   fetchOrgSessions,
-  fetchSessionDetail,
   lockSession,
   openSessionReviewConfirm,
   rejectSession,
@@ -90,11 +88,11 @@ import {
 } from "@/lib/api/scheduling.api"
 import {
   WorkSessionStatus,
-  type AttendanceEventDetail,
   type AttendanceException,
   type WorkSession,
 } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
+import { useNavigate } from "react-router-dom"
 
 // --- helpers ---
 
@@ -1440,176 +1438,9 @@ function ReviewQueue({
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-1.5">
-      <span className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
-      <span className="text-right text-[13px] text-foreground tabular-nums">{value ?? "—"}</span>
-    </div>
-  )
-}
-
-function eventTypeLabel(type: string) {
-  return type.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
-}
-
-function ClockInEventCard({ event }: { event: AttendanceEventDetail }) {
-  const location = event.location
-  const device = event.deviceContext
-  const deviceEntries =
-    device && typeof device === "object" ? Object.entries(device).slice(0, 8) : []
-
-  return (
-    <div className="border border-border/70 p-4">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-foreground">{eventTypeLabel(event.eventType)}</span>
-        <span className="text-[12px] text-muted-foreground">{event.eventSource}</span>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="min-w-0">
-          <DetailRow label="Server time" value={formatDateTime(event.serverReceivedAt)} />
-          <DetailRow
-            label="Reported time"
-            value={event.clientReportedAt ? formatDateTime(event.clientReportedAt) : "—"}
-          />
-          <DetailRow label="Timezone" value={event.clientTimezone ?? "—"} />
-          <DetailRow label="IP address" value={event.ipAddress ?? "—"} />
-          <DetailRow
-            label="Location"
-            value={
-              location
-                ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
-                : "Not captured"
-            }
-          />
-          {location ? (
-            <>
-              <DetailRow
-                label="Accuracy"
-                value={location.accuracyMeters != null ? `${location.accuracyMeters} m` : "—"}
-              />
-              <DetailRow label="Location permission" value={location.permissionState ?? "—"} />
-            </>
-          ) : null}
-          <DetailRow label="Geofence" value={event.geofenceResult ?? "Not evaluated"} />
-          <DetailRow
-            label="Work site"
-            value={event.matchedWorkSiteId ? shortId(event.matchedWorkSiteId) : "—"}
-          />
-          {deviceEntries.length > 0 ? (
-            <div className="pt-2">
-              <span className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Device</span>
-              <div className="mt-1 space-y-0.5">
-                {deviceEntries.map(([key, val]) => (
-                  <div key={key} className="flex justify-between gap-3 text-[12px]">
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="truncate text-right text-foreground">{String(val)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <DetailRow label="Device" value="Not captured" />
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <span className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Photo</span>
-          <div className="mt-1">
-            {event.photoUrl ? (
-              <img
-                src={event.photoUrl}
-                alt="Clock evidence"
-                className="max-h-64 w-full rounded border border-border object-contain"
-              />
-            ) : (
-              <div className="flex h-32 items-center justify-center border border-dashed border-border text-[13px] text-muted-foreground">
-                {event.cameraRequired ? "Photo required but missing" : "No photo captured"}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ClockInDetailModal({
-  isOpen,
-  onClose,
-  employeeName: employeeLabel,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  employeeName: string | null
-}) {
-  const detail = useAppSelector((s) => s.attendance.sessionDetail)
-  const isLoading = useAppSelector((s) => s.attendance.status.sessionDetail === "loading")
-  const session = detail?.session
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} heading="Clock-in detail" className="sm:min-w-0 sm:max-w-3xl">
-      {isLoading || !session ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          {isLoading ? "Loading capture detail…" : "No detail available."}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-5">
-          <div className="border border-border/70 p-4">
-            <div className="mb-2 text-[13px] font-medium text-foreground">
-              {employeeLabel ?? shortId(session.employeeMembershipId)}
-            </div>
-            <div className="grid gap-x-8 sm:grid-cols-2">
-              <DetailRow label="Status" value={session.status.replaceAll("_", " ")} />
-              <DetailRow label="Review" value={session.reviewStatus.replaceAll("_", " ")} />
-              <DetailRow label="Resolution" value={session.resolutionType.replaceAll("_", " ")} />
-              <DetailRow
-                label="Hours"
-                value={
-                  session.actualClockOutAt
-                    ? formatDuration(session.actualClockInAt, session.actualClockOutAt)
-                    : "Open"
-                }
-              />
-              <DetailRow
-                label="Net minutes"
-                value={session.netMinutes != null ? String(session.netMinutes) : "—"}
-              />
-              <DetailRow
-                label="Break minutes"
-                value={session.breakMinutes != null ? String(session.breakMinutes) : "—"}
-              />
-            </div>
-          </div>
-
-          {detail.events.length > 0 ? (
-            detail.events.map((event) => <ClockInEventCard key={event.id} event={event} />)
-          ) : (
-            <p className="text-sm text-muted-foreground">No attendance events recorded for this session.</p>
-          )}
-
-          {detail.exceptions.length > 0 ? (
-            <div className="border border-border/70 p-4">
-              <div className="mb-2 text-[13px] font-medium text-foreground">Exceptions</div>
-              <div className="space-y-2">
-                {detail.exceptions.map((exception) => (
-                  <div key={exception.id} className="flex items-start justify-between gap-3 text-[13px]">
-                    <span className="text-foreground">{exception.message}</span>
-                    <span className="shrink-0 text-muted-foreground uppercase">{exception.severity}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-    </Modal>
-  )
-}
-
 const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
   const dispatch = useAppDispatch()
+  const navigate = useNavigate()
 
   const patterns = useAppSelector((s) => s.scheduling.patterns)
   const instances = useAppSelector((s) => s.scheduling.instances)
@@ -1657,7 +1488,6 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
   const [includeCancelled, setIncludeCancelled] = React.useState(false)
   const [includeCompleted, setIncludeCompleted] = React.useState(false)
   const [clockInDay, setClockInDay] = React.useState<Date>(() => new Date())
-  const [detailSessionId, setDetailSessionId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     dispatch(fetchPatterns())
@@ -1707,16 +1537,10 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
 
   const openSessionDetail = React.useCallback(
     (session: WorkSession) => {
-      setDetailSessionId(session.id)
-      dispatch(fetchSessionDetail(session.id))
+      navigate(`/scheduling/clock-ins/${session.id}`)
     },
-    [dispatch],
+    [navigate],
   )
-
-  const closeSessionDetail = React.useCallback(() => {
-    setDetailSessionId(null)
-    dispatch(clearSessionDetail())
-  }, [dispatch])
 
   const handleCalendarRangeChange = React.useCallback((from: string, to: string) => {
     setCalendarRange((current) =>
@@ -2310,18 +2134,6 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
               heading="Remove assignment"
               description="Remove this employee from the shift pattern? They will no longer be assigned to its shifts."
               confirmLabel="Remove assignment"
-            />
-
-            <ClockInDetailModal
-              isOpen={detailSessionId !== null}
-              onClose={closeSessionDetail}
-              employeeName={
-                detailSessionId
-                  ? employeeByMembershipId.get(
-                      dayClockIns.find((s) => s.id === detailSessionId)?.employeeMembershipId ?? "",
-                    ) ?? null
-                  : null
-              }
             />
           </div>
         </div>

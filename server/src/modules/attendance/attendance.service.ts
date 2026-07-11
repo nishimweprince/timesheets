@@ -9,6 +9,7 @@ import { MediaService } from '../media/media.service';
 import { PoliciesService } from '../policies/policies.service';
 import { SchedulingService } from '../scheduling/scheduling.service';
 import { ClockDto, HistoryQueryDto, HistoryStatusGroup } from './dto/attendance.dto';
+import { mergeDeviceContext } from './device-context';
 import { AttendanceEvent, AttendanceEventType } from './entities/attendance-event.entity';
 import { AttendanceException } from './entities/attendance-exception.entity';
 import { ClockAttempt, ClockAttemptResult } from './entities/clock-attempt.entity';
@@ -447,7 +448,11 @@ export class AttendanceService {
       requestedShiftAssignmentId: dto.requestedShiftAssignmentId ?? null,
       requestedShiftInstanceId: dto.requestedShiftInstanceId ?? null,
       requestedShiftPatternAssignmentId: dto.requestedShiftPatternAssignmentId ?? null,
-      requestContext: { ip: request.ip, userAgent: request.header('user-agent'), device: dto.device ?? null },
+      requestContext: {
+        ip: request.ip,
+        userAgent: request.header('user-agent'),
+        device: mergeDeviceContext(request.header('user-agent'), dto.device ?? null)
+      },
       policyResult: null,
       createdById: user.userId
     };
@@ -464,6 +469,7 @@ export class AttendanceService {
     extra: Partial<AttendanceEvent>
   ): Partial<AttendanceEvent> {
     const clientDate = dto.clientReportedAt ? new Date(dto.clientReportedAt) : null;
+    const userAgent = request.header('user-agent');
     return {
       organizationId: user.organizationId,
       employeeMembershipId: user.membershipId,
@@ -486,7 +492,7 @@ export class AttendanceService {
       matchedWorkSiteId: null,
       ipAddress: request.ip ?? null,
       networkContext: { correlationId: request.correlationId ?? null },
-      deviceContext: dto.device ?? null,
+      deviceContext: mergeDeviceContext(userAgent, dto.device ?? null),
       cameraEvidenceId: dto.cameraEvidenceId ?? null,
       evidenceValidationResult: dto.cameraEvidenceId ? { verified: true } : null,
       reason: dto.reason ?? null,

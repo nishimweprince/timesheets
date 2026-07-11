@@ -97,6 +97,87 @@ describe('AttendanceService location requirements', () => {
     expect((attendanceEventCall?.[1] as Partial<AttendanceEvent>).locationAccuracyMeters).toBe(12);
   });
 
+  it('persists client-supplied device context on clock-in', async () => {
+    const manager = createManager();
+    const dataSource = {
+      getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
+      transaction: jest.fn(async (callback: (transactionManager: typeof manager) => Promise<unknown>) => callback(manager))
+    };
+    const service = createService(dataSource);
+
+    await service.clockIn(
+      user,
+      {
+        location: {
+          latitude: 44.9778,
+          longitude: -93.265,
+          accuracyMeters: 12
+        },
+        device: {
+          deviceClass: 'desktop',
+          browser: 'Chrome',
+          browserVersion: '120.0.0',
+          os: 'macOS',
+          platform: 'MacIntel',
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0',
+          touchCapable: false,
+          source: 'client'
+        }
+      },
+      request
+    );
+
+    const attendanceEventCall = manager.create.mock.calls.find((call: unknown[]) => call[0] === AttendanceEvent);
+    const deviceContext = (attendanceEventCall?.[1] as Partial<AttendanceEvent>).deviceContext as Record<string, unknown>;
+    expect(deviceContext).toMatchObject({
+      deviceClass: 'desktop',
+      browser: 'Chrome',
+      os: 'macOS',
+      source: 'merged'
+    });
+  });
+
+  it('derives device context from User-Agent when client omits device', async () => {
+    const manager = createManager();
+    const dataSource = {
+      getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
+      transaction: jest.fn(async (callback: (transactionManager: typeof manager) => Promise<unknown>) => callback(manager))
+    };
+    const service = createService(dataSource);
+    const mobileRequest = {
+      ip: '127.0.0.1',
+      correlationId: 'correlation-id',
+      header: jest.fn((name: string) => {
+        if (name.toLowerCase() === 'idempotency-key') return 'idempotency-key-mobile';
+        if (name.toLowerCase() === 'user-agent') {
+          return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+        }
+        return undefined;
+      })
+    } as unknown as AuthenticatedRequest;
+
+    await service.clockIn(
+      user,
+      {
+        location: {
+          latitude: 44.9778,
+          longitude: -93.265,
+          accuracyMeters: 12
+        }
+      },
+      mobileRequest
+    );
+
+    const attendanceEventCall = manager.create.mock.calls.find((call: unknown[]) => call[0] === AttendanceEvent);
+    const deviceContext = (attendanceEventCall?.[1] as Partial<AttendanceEvent>).deviceContext as Record<string, unknown>;
+    expect(deviceContext).toMatchObject({
+      deviceClass: 'mobile',
+      browser: 'Safari',
+      os: 'iOS',
+      source: 'server'
+    });
+  });
+
   it('records a valid clock-out location on the attendance event', async () => {
     const manager = createClockOutManager();
     const dataSource = {

@@ -1,5 +1,6 @@
 import { apiRequest } from './client'
 import { toQueryString, type PaginatedResult, type PaginationParams } from './pagination'
+import type { ClockDeviceContext } from '../device'
 
 export const WorkSessionStatus = {
   OPEN: 'OPEN',
@@ -104,7 +105,7 @@ export interface ClockPayload {
     capturedAt?: string
     permissionState?: string
   }
-  device?: Record<string, unknown>
+  device?: ClockDeviceContext | Record<string, unknown>
   cameraEvidenceId?: string
   reason?: string
 }

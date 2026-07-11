@@ -173,9 +173,10 @@ button {
   }
 }
 
-span, p, div {
+/* Body copy baseline — do not force 13px on every div (flattens page hierarchy). */
+span, p {
   line-height: 1.5;
-  font-size: 13px !important;
+  font-size: 13px;
 }
 
 .operations-page-header {
@@ -940,37 +941,95 @@ span, p, div {
   }
 }
 
-.auth-grid-pattern {
-  background-image:
-    linear-gradient(to right, color-mix(in oklch, var(--primary) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--primary) 8%, transparent) 1px, transparent 1px);
-  background-size: 2.5rem 2.5rem;
-  mask-image: linear-gradient(to bottom right, black 20%, transparent 80%);
+/* Auth: centered card over a quiet 3D construction-line field */
+.auth-line-field {
+  background: color-mix(in oklch, var(--auth-panel) 45%, var(--background));
 }
 
-.auth-pulse-line {
-  background: linear-gradient(
+.auth-line-field-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 75% 55% at 50% 42%,
+      color-mix(in oklch, var(--background) 94%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 45% 35% at 20% 78%,
+      color-mix(in oklch, var(--primary) 5%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 38% 32% at 86% 16%,
+      color-mix(in oklch, var(--primary) 4%, transparent),
+      transparent 58%
+    );
+}
+
+.auth-line-field-perspective {
+  position: absolute;
+  inset: 0;
+  perspective: 720px;
+  perspective-origin: 50% 38%;
+  overflow: hidden;
+}
+
+.auth-line-field-floor {
+  position: absolute;
+  left: -35%;
+  right: -35%;
+  top: 28%;
+  bottom: -45%;
+  transform: rotateX(62deg);
+  transform-origin: center top;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklch, var(--primary) 10%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--primary) 8%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 3.5rem 3.5rem;
+  mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    color-mix(in oklch, var(--primary) 40%, transparent) 45%,
-    color-mix(in oklch, var(--primary) 40%, transparent) 55%,
+    black 22%,
+    black 50%,
     transparent 100%
   );
-  background-size: 100% 200%;
-  animation: auth-pulse-line 4s ease-in-out infinite;
+  opacity: 0.32;
 }
 
-@keyframes auth-pulse-line {
-  0%,
-  100% {
-    background-position: 0% 0%;
-    opacity: 0.4;
-  }
+.auth-line-field-horizon {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 38%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklch, var(--primary) 14%, transparent) 25%,
+    color-mix(in oklch, var(--primary) 14%, transparent) 75%,
+    transparent
+  );
+  opacity: 0.4;
+}
 
-  50% {
-    background-position: 0% 100%;
-    opacity: 1;
-  }
+.auth-line-field-strokes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: color-mix(in oklch, var(--primary) 16%, transparent);
+  stroke-width: 0.08;
+  fill: none;
+  opacity: 0.4;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -984,10 +1043,5 @@ span, p, div {
 
   .employee-shift-calendar .rbc-event.employee-shift-calendar-block {
     transition: none;
-  }
-
-  .auth-pulse-line {
-    animation: none;
-    opacity: 0.6;
   }
 }

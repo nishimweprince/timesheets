@@ -69,7 +69,7 @@ const Onboarding = () => {
   }
 
   return (
-    <AuthShell showLeftPanel={false}>
+    <AuthShell>
       <section className="flex w-full flex-col gap-7">
         <div className="flex flex-col gap-1">
           <div className="mb-2 flex size-10 items-center justify-center border border-primary/20 bg-primary/10 text-primary">

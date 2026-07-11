@@ -1,16 +1,19 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, MailCheckIcon } from 'lucide-react'
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Link } from "react-router-dom"
+import { ArrowLeftIcon, MailCheckIcon } from "lucide-react"
 
-import AuthShell from '@/components/auth/AuthShell'
-import Input from '@/components/reusable/inputs/Input'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { forgotPasswordSchema, type ForgotPasswordFormValues } from '@/lib/validations/auth'
-import { authApi } from '@/lib/api/auth.api'
-import { showApiErrorToast } from '@/lib/api/errors'
+import AuthShell, { AuthFormHeader } from "@/components/auth/AuthShell"
+import Input from "@/components/reusable/inputs/Input"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import {
+  forgotPasswordSchema,
+  type ForgotPasswordFormValues,
+} from "@/lib/validations/auth"
+import { authApi } from "@/lib/api/auth.api"
+import { showApiErrorToast } from "@/lib/api/errors"
 
 const ForgotPassword = () => {
   const [submitted, setSubmitted] = useState(false)
@@ -30,7 +33,7 @@ const ForgotPassword = () => {
       await authApi.forgotPassword({ email: data.email })
       setSubmitted(true)
     } catch (err) {
-      showApiErrorToast(err, 'forgot-password')
+      showApiErrorToast(err, "forgot-password")
     } finally {
       setIsSubmitting(false)
     }
@@ -38,22 +41,21 @@ const ForgotPassword = () => {
 
   if (submitted) {
     return (
-      <AuthShell showLeftPanel={false}>
+      <AuthShell>
         <section className="flex w-full flex-col gap-7">
-          <div className="flex flex-col items-start gap-4">
-            <span className="flex size-10 items-center justify-center border border-field-border text-primary">
-              <MailCheckIcon className="size-5" />
-            </span>
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg text-foreground">Check your inbox</h2>
-              <p className="text-sm text-muted-foreground">
-                If that email is registered, you'll receive a password reset link shortly. The
-                link expires in 15 minutes.
-              </p>
-            </div>
+          <AuthFormHeader
+            eyebrow="Account recovery"
+            title="Check your email"
+            description="If that address is registered, a reset link is on its way. It expires in 15 minutes."
+            icon={<MailCheckIcon className="size-5" />}
+          />
+
+          <div className="border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+            Didn’t get a message? Check spam, or try again with the email on your
+            account.
           </div>
 
-          <Button variant="outline" className="w-full" asChild>
+          <Button variant="outline" className="h-11 w-full" asChild>
             <Link to="/auth/login">
               <ArrowLeftIcon data-icon="inline-start" />
               Back to sign in
@@ -65,39 +67,42 @@ const ForgotPassword = () => {
   }
 
   return (
-    <AuthShell showLeftPanel={false}>
+    <AuthShell>
       <section className="flex w-full flex-col gap-7">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-foreground">Forgot password?</h2>
-          <p className="text-sm text-muted-foreground">
-            Enter your email and we'll send you a link to reset your password.
-          </p>
-        </div>
+        <AuthFormHeader
+          eyebrow="Account recovery"
+          title="Reset your password"
+          description="Enter the email on your account. We’ll send a reset link if it’s registered."
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="flex flex-col gap-6"
+        >
           <Input
             label="Email"
             type="email"
             autoComplete="email"
             placeholder="you@tuzahealth.com"
             error={errors.email?.message}
-            {...register('email')}
+            {...register("email")}
             required
           />
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Spinner data-icon="inline-start" />
                 Sending link
               </>
             ) : (
-              'Send reset link'
+              "Send reset link"
             )}
           </Button>
         </form>
 
-        <Button variant="outline" className="w-full" asChild>
+        <Button variant="ghost" className="h-10 w-full text-muted-foreground" asChild>
           <Link to="/auth/login">
             <ArrowLeftIcon data-icon="inline-start" />
             Back to sign in

@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { useAppSelector } from "@/states/store/hooks.state"
+import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import {
   Collapsible,
   CollapsibleContent,
@@ -46,12 +46,18 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import {
+  fetchExceptions,
+  fetchOrgSessions,
+} from "@/states/features/attendance.slice"
+import { WorkSessionStatus, type WorkSession } from "@/lib/api/attendance.api"
 import logo from "/logo.png"
 
 type SubNavItem = {
   title: string
   url: string
   icon: React.ComponentType<{ className?: string }>
+  badge?: string
 }
 
 type NavItem = {
@@ -62,79 +68,139 @@ type NavItem = {
   items?: SubNavItem[]
 }
 
+function isPendingSession(session: WorkSession) {
+  return (
+    session.status === WorkSessionStatus.PENDING_REVIEW ||
+    session.status === WorkSessionStatus.CLOCKED_OUT ||
+    session.hasExceptions ||
+    session.reviewStatus === "REQUIRED"
+  )
+}
+
 const mainNav: NavItem[] = [
-  { title: "Overview", url: "/dashboard", icon: HomeIcon },
+  { title: "Home", url: "/dashboard", icon: HomeIcon },
   { title: "My Timesheets", url: "/timesheets", icon: FileTextIcon },
 ]
 
-const operationsNav: NavItem[] = [
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3Icon,
-    items: [
-      { title: "Hours", url: "/reports", icon: ClockIcon },
-      { title: "Review", url: "/reports/review", icon: ClipboardCheckIcon },
-      { title: "Exception queue", url: "/reports/exception-queue", icon: AlertTriangleIcon },
-      { title: "Exception report", url: "/reports/exceptions", icon: ScrollTextIcon },
-      { title: "Clock-ins", url: "/scheduling/clock-ins", icon: LogInIcon },
-    ],
-  },
-  {
-    title: "Schedule",
-    url: "/scheduling",
-    icon: CalendarIcon,
-    items: [
-      { title: "Coverage", url: "/scheduling", icon: LayoutGridIcon },
-      { title: "Generated Shifts", url: "/scheduling/shifts", icon: CalendarClockIcon },
-      { title: "Shift Assignments", url: "/scheduling/assignments", icon: ClipboardListIcon },
-    ],
-  },
-  {
-    title: "Policies",
-    url: "/policies",
-    icon: ShieldCheckIcon,
-    items: [
-      { title: "Manage Policies", url: "/policies", icon: ScrollTextIcon },
-      { title: "Work Sites", url: "/policies/work-sites", icon: MapPinIcon },
-    ],
-  },
-  {
-    title: "Team",
-    url: "/team",
-    icon: UsersIcon,
-    items: [
-      { title: "Employees", url: "/team", icon: UserIcon },
-      { title: "Teams", url: "/team/teams", icon: UsersRoundIcon },
-    ],
-  },
-]
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const dispatch = useAppDispatch()
   const { pathname } = useLocation()
   const employeeCount = useAppSelector((state) => state.employeeManagement.employees.length)
+  const orgSessions = useAppSelector((state) => state.attendance.orgSessions)
+  const exceptions = useAppSelector((state) => state.attendance.exceptions)
   const permissions = useAppSelector((state) => state.auth.user?.permissions ?? [])
   const roleNames = useAppSelector((state) => state.auth.user?.roleNames ?? [])
   const canReadEmployees = permissions.includes("employee.read")
   const canManageShifts = permissions.includes("shift.create")
   const isSuperAdmin = roleNames.includes("Organization Admin")
   const canReadReports = permissions.includes("report.read")
+  const canClockInOut = permissions.includes("attendance.clock_in.self")
+  const canReadSelf = permissions.includes("attendance.read.self")
+  const canReadOrgAttendance = permissions.includes("attendance.read.organization")
+
+  React.useEffect(() => {
+    if (!canReadOrgAttendance && !canManageShifts) return
+    dispatch(fetchOrgSessions())
+    dispatch(fetchExceptions())
+  }, [canManageShifts, canReadOrgAttendance, dispatch])
+
+  const pendingReviewCount = React.useMemo(
+    () => orgSessions.filter(isPendingSession).length,
+    [orgSessions],
+  )
+  const openExceptionCount = exceptions.length
+
+  const operationsNav: NavItem[] = React.useMemo(
+    () => [
+      {
+        title: "Attendance",
+        url: "/reports/review",
+        icon: ClipboardCheckIcon,
+        items: [
+          { title: "Review", url: "/reports/review", icon: ClipboardCheckIcon },
+          {
+            title: "Exception queue",
+            url: "/reports/exception-queue",
+            icon: AlertTriangleIcon,
+          },
+          { title: "Clock-ins", url: "/scheduling/clock-ins", icon: LogInIcon },
+        ],
+      },
+      {
+        title: "Analytics",
+        url: "/reports",
+        icon: BarChart3Icon,
+        items: [
+          { title: "Hours", url: "/reports", icon: ClockIcon },
+          {
+            title: "Exception report",
+            url: "/reports/exceptions",
+            icon: ScrollTextIcon,
+          },
+        ],
+      },
+      {
+        title: "Schedule",
+        url: "/scheduling",
+        icon: CalendarIcon,
+        items: [
+          { title: "Coverage", url: "/scheduling", icon: LayoutGridIcon },
+          {
+            title: "Generated Shifts",
+            url: "/scheduling/shifts",
+            icon: CalendarClockIcon,
+          },
+          {
+            title: "Shift Assignments",
+            url: "/scheduling/assignments",
+            icon: ClipboardListIcon,
+          },
+        ],
+      },
+      {
+        title: "Policies",
+        url: "/policies",
+        icon: ShieldCheckIcon,
+        items: [
+          { title: "Manage Policies", url: "/policies", icon: ScrollTextIcon },
+          { title: "Work Sites", url: "/policies/work-sites", icon: MapPinIcon },
+        ],
+      },
+      {
+        title: "Team",
+        url: "/team",
+        icon: UsersIcon,
+        items: [
+          { title: "Employees", url: "/team", icon: UserIcon },
+          { title: "Teams", url: "/team/teams", icon: UsersRoundIcon },
+        ],
+      },
+    ],
+    [],
+  )
 
   const visibleMainNav = mainNav.filter((item) => {
-    if (item.title === "My Timesheets") return !isSuperAdmin
+    // Org admins manage the org; personal timesheets are for employees/managers who clock.
+    if (item.title === "My Timesheets") {
+      return !isSuperAdmin && (canClockInOut || canReadSelf)
+    }
     return true
   })
 
   const isClockInsPath =
     pathname === "/scheduling/clock-ins" || pathname.startsWith("/scheduling/clock-ins/")
+  const isExceptionQueuePath =
+    pathname === "/reports/exception-queue" ||
+    pathname.startsWith("/reports/exception-queue/")
+  const isReviewPath = pathname === "/reports/review"
 
   const isNavSectionActive = (item: NavItem) => {
-    if (item.title === "Reports") {
-      return (
-        pathname === "/reports" ||
-        pathname.startsWith("/reports/") ||
-        isClockInsPath
-      )
+    if (item.title === "Attendance") {
+      return isReviewPath || isExceptionQueuePath || isClockInsPath
+    }
+    if (item.title === "Analytics") {
+      if (isReviewPath || isExceptionQueuePath) return false
+      return pathname === "/reports" || pathname.startsWith("/reports/")
     }
     if (item.title === "Schedule") {
       if (isClockInsPath) return false
@@ -148,26 +214,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       if (item.title === "Team") return canReadEmployees
       if (item.title === "Schedule") return canManageShifts
       if (item.title === "Policies") return isSuperAdmin
-      // Clock-ins lives under Reports but is gated by shift.create on the route.
-      if (item.title === "Reports") return canReadReports || canManageShifts
+      if (item.title === "Attendance") {
+        return canReadReports || canManageShifts || canReadOrgAttendance
+      }
+      if (item.title === "Analytics") return canReadReports
       return true
     })
     .map((item) => {
       let next = item
-      if (item.title === "Reports" && item.items) {
+      if (item.title === "Attendance" && item.items) {
         next = {
           ...item,
-          items: item.items.filter((sub) => {
-            if (sub.url === "/scheduling/clock-ins") return canManageShifts
-            // Operational attendance pages: report readers or shift managers.
-            if (
-              sub.url === "/reports/review" ||
-              sub.url === "/reports/exception-queue"
-            ) {
-              return canReadReports || canManageShifts
-            }
-            return canReadReports
-          }),
+          items: item.items
+            .filter((sub) => {
+              if (sub.url === "/scheduling/clock-ins") return canManageShifts
+              return canReadReports || canManageShifts || canReadOrgAttendance
+            })
+            .map((sub) => {
+              if (sub.url === "/reports/review" && pendingReviewCount > 0) {
+                return { ...sub, badge: String(pendingReviewCount) }
+              }
+              if (sub.url === "/reports/exception-queue" && openExceptionCount > 0) {
+                return { ...sub, badge: String(openExceptionCount) }
+              }
+              return sub
+            }),
         }
       }
       if (next.title === "Team" && employeeCount > 0) {
@@ -213,7 +284,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         const sectionActive = isNavSectionActive(item)
 
         return (
-          <Collapsible key={item.title} asChild defaultOpen={sectionActive} className="group/collapsible">
+          <Collapsible
+            key={item.title}
+            asChild
+            defaultOpen={sectionActive}
+            className="group/collapsible"
+          >
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton
@@ -237,8 +313,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     const subActive =
                       pathname === subItem.url ||
                       (subItem.url === "/scheduling/clock-ins" && isClockInsPath) ||
-                      (subItem.url === "/reports/exception-queue" &&
-                        pathname.startsWith("/reports/exception-queue/"))
+                      (subItem.url === "/reports/exception-queue" && isExceptionQueuePath)
                     return (
                       <SidebarMenuSubItem key={subItem.url}>
                         <SidebarMenuSubButton
@@ -249,6 +324,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           <Link to={subItem.url}>
                             <SubIcon className="size-4" />
                             <span className="tracking-normal">{subItem.title}</span>
+                            {subItem.badge ? (
+                              <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center border border-sidebar-border/60 px-1.5 text-[11px] tabular-nums text-sidebar-foreground/70">
+                                {subItem.badge}
+                              </span>
+                            ) : null}
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
@@ -284,27 +364,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {/* Brand header */}
       <SidebarHeader className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4 shadow-xs">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden">
-          <img
-            src={logo}
-            alt="Tuza Health Logo"
-            className="h-8 w-8 object-contain"
-          />
+          <img src={logo} alt="Tuza Health Logo" className="h-8 w-8 object-contain" />
           <div className="flex flex-col justify-center">
-            <span className="text-base font-medium tracking-tight ">
-              Tuza Health
-            </span>
-            <span className="text-[13px] uppercase tracking-wider font-light text-muted-foreground letter-spacing-[0.02em]">
+            <span className="text-base font-medium tracking-tight">Tuza Health</span>
+            <span className="text-[13px] font-light uppercase tracking-wider text-muted-foreground">
               Timesheets
             </span>
           </div>
         </div>
       </SidebarHeader>
 
-
-      {/* Nav content */}
       <SidebarContent className="gap-6 py-4">
         <SidebarGroup className="gap-2.5 px-0">
           <SidebarGroupLabel className="h-7 px-4 text-[13px] font-medium text-muted-foreground">

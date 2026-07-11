@@ -1,20 +1,26 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeftIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom"
+import { ArrowLeftIcon, EyeIcon, EyeOffIcon, KeyRoundIcon } from "lucide-react"
 
-import AuthShell from '@/components/auth/AuthShell'
-import Input from '@/components/reusable/inputs/Input'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { resetPasswordSchema, type ResetPasswordFormValues } from '@/lib/validations/auth'
-import { authApi } from '@/lib/api/auth.api'
-import { showApiErrorToast, showAuthSuccessToast } from '@/lib/api/errors'
+import AuthShell, {
+  AuthFormHeader,
+  authPasswordToggleClassName,
+} from "@/components/auth/AuthShell"
+import Input from "@/components/reusable/inputs/Input"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import {
+  resetPasswordSchema,
+  type ResetPasswordFormValues,
+} from "@/lib/validations/auth"
+import { authApi } from "@/lib/api/auth.api"
+import { showApiErrorToast, showAuthSuccessToast } from "@/lib/api/errors"
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
+  const token = searchParams.get("token")
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -36,30 +42,34 @@ const ResetPassword = () => {
     setIsSubmitting(true)
     try {
       await authApi.resetPassword({ token, password: data.password })
-      showAuthSuccessToast('resetPasswordSuccess')
-      setTimeout(() => navigate('/auth/login', { replace: true }), 1500)
+      showAuthSuccessToast("resetPasswordSuccess")
+      setTimeout(() => navigate("/auth/login", { replace: true }), 1500)
     } catch (err) {
-      showApiErrorToast(err, 'reset-password')
+      showApiErrorToast(err, "reset-password")
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <AuthShell showLeftPanel={false}>
+    <AuthShell>
       <section className="flex w-full flex-col gap-7">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-foreground">Set new password</h2>
-          <p className="text-sm text-muted-foreground">
-            Choose a strong password for your Tuza Health account.
-          </p>
-        </div>
+        <AuthFormHeader
+          eyebrow="Account recovery"
+          title="Choose a new password"
+          description="Use at least 8 characters. You’ll sign in with this next."
+          icon={<KeyRoundIcon className="size-5" />}
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="flex flex-col gap-6"
+        >
           <div className="flex flex-col gap-4">
             <Input
               label="New password"
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               placeholder="At least 8 characters"
               error={errors.password?.message}
@@ -67,19 +77,23 @@ const ResetPassword = () => {
               suffix={
                 <button
                   type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30"
+                  className={authPasswordToggleClassName}
                 >
-                  {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                  {showPassword ? (
+                    <EyeOffIcon className="size-4" />
+                  ) : (
+                    <EyeIcon className="size-4" />
+                  )}
                 </button>
               }
-              {...register('password')}
+              {...register("password")}
             />
 
             <Input
               label="Confirm password"
-              type={showConfirm ? 'text' : 'password'}
+              type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
               placeholder="Repeat your password"
               error={errors.confirmPassword?.message}
@@ -87,30 +101,34 @@ const ResetPassword = () => {
               suffix={
                 <button
                   type="button"
-                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30"
+                  className={authPasswordToggleClassName}
                 >
-                  {showConfirm ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                  {showConfirm ? (
+                    <EyeOffIcon className="size-4" />
+                  ) : (
+                    <EyeIcon className="size-4" />
+                  )}
                 </button>
               }
-              {...register('confirmPassword')}
+              {...register("confirmPassword")}
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Spinner data-icon="inline-start" />
                 Resetting password
               </>
             ) : (
-              'Reset password'
+              "Reset password"
             )}
           </Button>
         </form>
 
-        <Button variant="outline" className="w-full" asChild>
+        <Button variant="ghost" className="h-10 w-full text-muted-foreground" asChild>
           <Link to="/auth/login">
             <ArrowLeftIcon data-icon="inline-start" />
             Back to sign in

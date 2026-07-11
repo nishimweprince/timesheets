@@ -8,6 +8,7 @@ import {
   CalendarClockIcon,
   CalendarIcon,
   ChevronRightIcon,
+  ClipboardCheckIcon,
   ClipboardListIcon,
   ClockIcon,
   FileTextIcon,
@@ -68,14 +69,25 @@ const mainNav: NavItem[] = [
 
 const operationsNav: NavItem[] = [
   {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3Icon,
+    items: [
+      { title: "Hours", url: "/reports", icon: ClockIcon },
+      { title: "Review", url: "/reports/review", icon: ClipboardCheckIcon },
+      { title: "Exception queue", url: "/reports/exception-queue", icon: AlertTriangleIcon },
+      { title: "Exception report", url: "/reports/exceptions", icon: ScrollTextIcon },
+      { title: "Clock-ins", url: "/scheduling/clock-ins", icon: LogInIcon },
+    ],
+  },
+  {
     title: "Schedule",
     url: "/scheduling",
     icon: CalendarIcon,
     items: [
       { title: "Coverage", url: "/scheduling", icon: LayoutGridIcon },
-      { title: "Clock-ins", url: "/scheduling/clock-ins", icon: LogInIcon },
       { title: "Generated Shifts", url: "/scheduling/shifts", icon: CalendarClockIcon },
-      { title: "Pattern Assignments", url: "/scheduling/assignments", icon: ClipboardListIcon },
+      { title: "Shift Assignments", url: "/scheduling/assignments", icon: ClipboardListIcon },
     ],
   },
   {
@@ -85,15 +97,6 @@ const operationsNav: NavItem[] = [
     items: [
       { title: "Manage Policies", url: "/policies", icon: ScrollTextIcon },
       { title: "Work Sites", url: "/policies/work-sites", icon: MapPinIcon },
-    ],
-  },
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3Icon,
-    items: [
-      { title: "Hours", url: "/reports", icon: ClockIcon },
-      { title: "Exceptions", url: "/reports/exceptions", icon: AlertTriangleIcon },
     ],
   },
   {
@@ -122,19 +125,57 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return true
   })
 
+  const isClockInsPath =
+    pathname === "/scheduling/clock-ins" || pathname.startsWith("/scheduling/clock-ins/")
+
+  const isNavSectionActive = (item: NavItem) => {
+    if (item.title === "Reports") {
+      return (
+        pathname === "/reports" ||
+        pathname.startsWith("/reports/") ||
+        isClockInsPath
+      )
+    }
+    if (item.title === "Schedule") {
+      if (isClockInsPath) return false
+      return pathname === "/scheduling" || pathname.startsWith("/scheduling/")
+    }
+    return pathname === item.url || pathname.startsWith(`${item.url}/`)
+  }
+
   const visibleOperationsNav = operationsNav
     .filter((item) => {
       if (item.title === "Team") return canReadEmployees
       if (item.title === "Schedule") return canManageShifts
       if (item.title === "Policies") return isSuperAdmin
-      if (item.title === "Reports") return canReadReports
+      // Clock-ins lives under Reports but is gated by shift.create on the route.
+      if (item.title === "Reports") return canReadReports || canManageShifts
       return true
     })
-    .map((item) =>
-      item.title === "Team" && employeeCount > 0
-        ? { ...item, badge: String(employeeCount) }
-        : item,
-    )
+    .map((item) => {
+      let next = item
+      if (item.title === "Reports" && item.items) {
+        next = {
+          ...item,
+          items: item.items.filter((sub) => {
+            if (sub.url === "/scheduling/clock-ins") return canManageShifts
+            // Operational attendance pages: report readers or shift managers.
+            if (
+              sub.url === "/reports/review" ||
+              sub.url === "/reports/exception-queue"
+            ) {
+              return canReadReports || canManageShifts
+            }
+            return canReadReports
+          }),
+        }
+      }
+      if (next.title === "Team" && employeeCount > 0) {
+        next = { ...next, badge: String(employeeCount) }
+      }
+      return next
+    })
+    .filter((item) => !item.items || item.items.length > 0)
 
   const menuButtonClassName = cn(
     "relative h-11 gap-3 rounded-xs px-4 text-[13px] font-medium text-sidebar-foreground/76",
@@ -169,8 +210,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       const Icon = item.icon
 
       if (item.items && item.items.length > 0) {
-        const sectionActive =
-          pathname === item.url || pathname.startsWith(`${item.url}/`)
+        const sectionActive = isNavSectionActive(item)
 
         return (
           <Collapsible key={item.title} asChild defaultOpen={sectionActive} className="group/collapsible">
@@ -194,11 +234,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuSub className="mx-4 gap-1 border-l-sidebar-border/70 px-3 py-1.5">
                   {item.items.map((subItem) => {
                     const SubIcon = subItem.icon
+                    const subActive =
+                      pathname === subItem.url ||
+                      (subItem.url === "/scheduling/clock-ins" && isClockInsPath) ||
+                      (subItem.url === "/reports/exception-queue" &&
+                        pathname.startsWith("/reports/exception-queue/"))
                     return (
                       <SidebarMenuSubItem key={subItem.url}>
                         <SidebarMenuSubButton
                           asChild
-                          isActive={pathname === subItem.url}
+                          isActive={subActive}
                           className="h-9 gap-2.5 rounded-xs px-3 text-[13px] text-sidebar-foreground/72 data-[size=md]:text-[13px] data-active:font-medium data-active:text-sidebar-foreground [&>svg]:text-sidebar-foreground/55 data-active:[&>svg]:text-sidebar-primary"
                         >
                           <Link to={subItem.url}>

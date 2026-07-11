@@ -8,10 +8,13 @@ import { AuditService } from '../audit/audit.service';
 import { MediaService } from '../media/media.service';
 import { PoliciesService } from '../policies/policies.service';
 import { SchedulingService } from '../scheduling/scheduling.service';
-import { ClockDto, HistoryQueryDto, HistoryStatusGroup } from './dto/attendance.dto';
+import { ClockDto, ExceptionsQueryDto, HistoryQueryDto, HistoryStatusGroup } from './dto/attendance.dto';
 import { mergeDeviceContext } from './device-context';
 import { AttendanceEvent, AttendanceEventType } from './entities/attendance-event.entity';
-import { AttendanceException } from './entities/attendance-exception.entity';
+import {
+  AttendanceException,
+  AttendanceExceptionStatus
+} from './entities/attendance-exception.entity';
 import { ClockAttempt, ClockAttemptResult } from './entities/clock-attempt.entity';
 import { ShiftResolutionType, WorkSession, WorkSessionStatus } from './entities/work-session.entity';
 
@@ -150,8 +153,67 @@ export class AttendanceService {
     return { session, events: eventDetails, exceptions };
   }
 
-  exceptionsForOrg(user: RequestUser): Promise<AttendanceException[]> {
-    return this.exceptions.find({ where: { organizationId: user.organizationId, status: 'OPEN' }, order: { createdAt: 'DESC' }, take: 100 });
+  exceptionsForOrg(user: RequestUser, query: ExceptionsQueryDto = {}): Promise<AttendanceException[]> {
+    const where: { organizationId: string; status?: string; severity?: string } = {
+      organizationId: user.organizationId
+    };
+    const status = query.status ?? AttendanceExceptionStatus.OPEN;
+    if (status !== 'ALL') {
+      where.status = status;
+    }
+    if (query.severity?.trim()) {
+      where.severity = query.severity.trim();
+    }
+    return this.exceptions.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 100
+    });
+  }
+
+  async exceptionById(user: RequestUser, id: string): Promise<AttendanceException> {
+    const exception = await this.exceptions.findOne({
+      where: { id, organizationId: user.organizationId }
+    });
+    if (!exception) throw new NotFoundException('Attendance exception not found');
+    return exception;
+  }
+
+  async resolveException(user: RequestUser, id: string): Promise<AttendanceException> {
+    return this.transitionException(user, id, AttendanceExceptionStatus.RESOLVED, 'attendance.exception.resolve');
+  }
+
+  async dismissException(user: RequestUser, id: string): Promise<AttendanceException> {
+    return this.transitionException(user, id, AttendanceExceptionStatus.DISMISSED, 'attendance.exception.dismiss');
+  }
+
+  private async transitionException(
+    user: RequestUser,
+    id: string,
+    status: AttendanceExceptionStatus,
+    action: string
+  ): Promise<AttendanceException> {
+    const exception = await this.exceptionById(user, id);
+    if (exception.status !== AttendanceExceptionStatus.OPEN) {
+      throw new BadRequestException('Only open exceptions can be resolved or dismissed');
+    }
+
+    exception.status = status;
+    exception.lastUpdatedById = user.userId;
+    const saved = await this.exceptions.save(exception);
+
+    await this.auditService.enqueue({
+      action,
+      layer: AuditLayer.ATTENDANCE,
+      correlationId: null,
+      organizationId: user.organizationId,
+      actorId: user.userId,
+      entityType: 'AttendanceException',
+      entityId: saved.id,
+      metadata: { status, code: saved.code, workSessionId: saved.workSessionId }
+    });
+
+    return saved;
   }
 
   async clockIn(user: RequestUser, dto: ClockDto, request: AuthenticatedRequest): Promise<Record<string, unknown>> {

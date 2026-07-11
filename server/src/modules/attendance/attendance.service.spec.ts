@@ -268,6 +268,73 @@ describe('AttendanceService location requirements', () => {
     expect(sessions.save).not.toHaveBeenCalled();
   });
 
+  it('lists open exceptions by default and filters by status', async () => {
+    const openException = { id: 'ex-open', status: 'OPEN' };
+    const exceptions = {
+      find: jest.fn().mockResolvedValue([openException])
+    };
+    const service = createService({}, { exceptions });
+
+    await service.exceptionsForOrg(user);
+    expect(exceptions.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: user.organizationId, status: 'OPEN' })
+      })
+    );
+
+    await service.exceptionsForOrg(user, { status: 'ALL' });
+    expect(exceptions.find).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { organizationId: user.organizationId }
+      })
+    );
+  });
+
+  it('resolves an open exception and audits the transition', async () => {
+    const exception = {
+      id: 'exception-id',
+      organizationId: user.organizationId,
+      status: 'OPEN',
+      code: 'UNPLANNED_CLOCK_IN',
+      workSessionId: 'session-id',
+      lastUpdatedById: null
+    };
+    const auditService = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    const exceptions = {
+      findOne: jest.fn().mockResolvedValue(exception),
+      save: jest.fn().mockImplementation(async (row) => row)
+    };
+    const service = createService({}, { exceptions, auditService });
+
+    const saved = await service.resolveException(user, exception.id);
+
+    expect(saved.status).toBe('RESOLVED');
+    expect(exceptions.save).toHaveBeenCalled();
+    expect(auditService.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'attendance.exception.resolve',
+        entityType: 'AttendanceException',
+        entityId: exception.id
+      })
+    );
+  });
+
+  it('rejects resolving a non-open exception', async () => {
+    const exception = {
+      id: 'exception-id',
+      organizationId: user.organizationId,
+      status: 'RESOLVED'
+    };
+    const exceptions = {
+      findOne: jest.fn().mockResolvedValue(exception),
+      save: jest.fn()
+    };
+    const service = createService({}, { exceptions });
+
+    await expect(service.dismissException(user, exception.id)).rejects.toBeInstanceOf(BadRequestException);
+    expect(exceptions.save).not.toHaveBeenCalled();
+  });
+
   it('hydrates a session detail with events, resolved photo url, and location', async () => {
     const session = {
       id: 'work-session-id',

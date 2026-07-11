@@ -53,14 +53,9 @@ import { DataTable } from "@/components/reusable/tables"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
 import {
-  approveSession,
-  closeSessionReviewConfirm,
   fetchDayClockIns,
   fetchExceptions,
   fetchOrgSessions,
-  lockSession,
-  openSessionReviewConfirm,
-  rejectSession,
 } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import {
@@ -92,7 +87,7 @@ import {
   type WorkSession,
 } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 
 // --- helpers ---
 
@@ -152,6 +147,22 @@ function toIsoDate(date: Date | undefined): string {
   const m = String(date.getMonth() + 1).padStart(2, "0")
   const d = String(date.getDate()).padStart(2, "0")
   return `${y}-${m}-${d}`
+}
+
+/** Parse `YYYY-MM-DD` as a local calendar date. Returns null if invalid. */
+function parseDayParam(value: string | null): Date | null {
+  if (!value) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null
+  const date = new Date(y, m - 1, d)
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+    return null
+  }
+  return date
 }
 
 function employeeName(employee: { firstName: string; lastName: string; email: string }) {
@@ -448,6 +459,30 @@ function NewShiftDialog({ onCreated }: { onCreated: () => void }) {
 
 // --- Shift details dialog ---
 
+function DetailMetaRow({
+  label,
+  value,
+  mono,
+}: {
+  label: React.ReactNode
+  value: React.ReactNode
+  mono?: boolean
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 border-b border-border/50 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-[12px] uppercase tracking-[0.08em] text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "min-w-0 text-[13px] font-medium text-foreground sm:text-right",
+          mono && "break-all font-mono text-xs font-normal leading-relaxed",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  )
+}
+
 function ShiftDetailsDialog({
   instance,
   patterns,
@@ -455,6 +490,7 @@ function ShiftDetailsDialog({
   open,
   onOpenChange,
   onDone,
+  blockDismiss = false,
 }: {
   instance: ShiftInstance | null
   patterns: ShiftPattern[]
@@ -462,26 +498,58 @@ function ShiftDetailsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   onDone: () => void
+  /** Keep the sheet open while a nested confirmation modal is showing. */
+  blockDismiss?: boolean
 }) {
+  const handleOpenChange = React.useCallback(
+    (next: boolean) => {
+      // Nested Dialog (e.g. cancel-shift confirm) shares dismiss layers with the Sheet.
+      // Ignore close requests while that modal is open so dismissing it leaves the panel up.
+      if (!next && blockDismiss) return
+      onOpenChange(next)
+    },
+    [blockDismiss, onOpenChange],
+  )
+
+  const preventWhileBlocked = React.useCallback(
+    (event: { preventDefault: () => void }) => {
+      if (blockDismiss) event.preventDefault()
+    },
+    [blockDismiss],
+  )
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-2xl">
-        <SheetHeader className="border-b border-border/70 px-5 py-4">
-          <SheetDescription className="text-[13px] uppercase tracking-[0.12em]">
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent
+        className={cn(
+          // Full width on phones; comfortable side panel on larger screens.
+          // Override base sheet `w-3/4` + `sm:max-w-sm` so content never crushes.
+          "flex h-full w-full flex-col gap-0 overflow-hidden p-0",
+          "data-[side=right]:w-full data-[side=right]:sm:max-w-md data-[side=right]:md:max-w-lg data-[side=right]:lg:max-w-xl",
+        )}
+        onInteractOutside={preventWhileBlocked}
+        onPointerDownOutside={preventWhileBlocked}
+        onFocusOutside={preventWhileBlocked}
+        onEscapeKeyDown={preventWhileBlocked}
+      >
+        <SheetHeader className="shrink-0 border-b border-border/70 px-4 py-4 pr-12 sm:px-5">
+          <SheetDescription className="text-[12px] uppercase tracking-[0.12em]">
             Coverage detail
           </SheetDescription>
-          <SheetTitle className="text-lg">Shift details</SheetTitle>
+          <SheetTitle className="text-base sm:text-lg">Shift details</SheetTitle>
         </SheetHeader>
         {instance && (
-          <div className="p-5">
-            <ShiftDetailsContent
-              key={instance.id}
-              instance={instance}
-              patterns={patterns}
-              patternAssignments={patternAssignments}
-              onOpenChange={onOpenChange}
-              onDone={onDone}
-            />
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="p-4 sm:p-5">
+              <ShiftDetailsContent
+                key={instance.id}
+                instance={instance}
+                patterns={patterns}
+                patternAssignments={patternAssignments}
+                onOpenChange={handleOpenChange}
+                onDone={onDone}
+              />
+            </div>
           </div>
         )}
       </SheetContent>
@@ -550,103 +618,115 @@ function ShiftDetailsContent({
     instance.status !== ShiftInstanceStatus.COMPLETED
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-md border border-border/70 bg-field p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                {formatDateISO(instance.shiftDate)}
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-                {formatTime(instance.startAt)} - {formatTime(instance.endAt)}
-              </div>
+    <div className="flex flex-col gap-4 sm:gap-5">
+      {/* Summary — single column so labels never collide in a narrow sheet */}
+      <div className="rounded-md border border-border/70 bg-field p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              {formatDateISO(instance.shiftDate)}
             </div>
-            <span className={cn("inline-flex h-7 items-center border px-2 text-[12px] uppercase", instanceStatusClass[instance.status])}>
-              {statusLabel(instance.status)}
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <div className="text-muted-foreground">Duration</div>
-              <div className="font-medium tabular-nums">{formatDuration(instance.startAt, instance.endAt)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Pattern</div>
-              <div className="font-medium">{pattern?.name ?? (instance.patternId ? shortId(instance.patternId) : "No pattern")}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Starts</div>
-              <div className="font-medium tabular-nums">{formatDateTime(instance.startAt)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Ends</div>
-              <div className="font-medium tabular-nums">{formatDateTime(instance.endAt)}</div>
+            <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight text-foreground sm:text-xl">
+              <span className="whitespace-nowrap">{formatTime(instance.startAt)}</span>
+              <span className="mx-1.5 text-muted-foreground">–</span>
+              <span className="whitespace-nowrap">{formatTime(instance.endAt)}</span>
             </div>
           </div>
+          <span
+            className={cn(
+              "inline-flex h-7 w-fit shrink-0 items-center border px-2 text-[12px] uppercase",
+              instanceStatusClass[instance.status],
+            )}
+          >
+            {statusLabel(instance.status)}
+          </span>
         </div>
 
-        <div className="rounded-md border border-border/70 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            <UsersRound className="size-4" aria-hidden="true" />
-            Coverage
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {assignedEmployees.length > 0 ? (
-              assignedEmployees.map((name) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center border border-success/20 bg-success/10 px-2.5 py-1 text-[13px] font-medium text-success"
-                >
-                  {name}
-                </span>
-              ))
-            ) : (
-              <span className="inline-flex items-center border border-warning/25 bg-warning/10 px-2.5 py-1 text-[13px] font-medium text-warning">
-                Unassigned
-              </span>
-            )}
-          </div>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Shift ID</dt>
-              <dd className="truncate font-mono text-xs">{instance.id}</dd>
-            </div>
-            {instance.patternId && (
-              <div>
-                <dt className="text-muted-foreground">Pattern ID</dt>
-                <dd className="truncate font-mono text-xs">{instance.patternId}</dd>
-              </div>
-            )}
-            {instance.workSiteId && (
-              <div>
-                <dt className="flex items-center gap-1.5 text-muted-foreground">
-                  <MapPin className="size-3.5" aria-hidden="true" />
-                  Work site ID
-                </dt>
-                <dd className="truncate font-mono text-xs">{instance.workSiteId}</dd>
-              </div>
-            )}
-          </dl>
-        </div>
+        <dl className="mt-3 border-t border-border/60 sm:mt-4">
+          <DetailMetaRow
+            label="Duration"
+            value={formatDuration(instance.startAt, instance.endAt)}
+          />
+          <DetailMetaRow
+            label="Pattern"
+            value={
+              pattern?.name ?? (instance.patternId ? shortId(instance.patternId) : "No pattern")
+            }
+          />
+          <DetailMetaRow label="Starts" value={formatDateTime(instance.startAt)} />
+          <DetailMetaRow label="Ends" value={formatDateTime(instance.endAt)} />
+        </dl>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-md border border-border/70 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            <Activity className="size-4" aria-hidden="true" />
+      {/* Coverage */}
+      <div className="rounded-md border border-border/70 p-3 sm:p-4">
+        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <UsersRound className="size-4 shrink-0" aria-hidden="true" />
+          Coverage
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {assignedEmployees.length > 0 ? (
+            assignedEmployees.map((name) => (
+              <span
+                key={name}
+                className="inline-flex max-w-full items-center border border-success/20 bg-success/10 px-2.5 py-1 text-[13px] font-medium text-success"
+              >
+                <span className="truncate">{name}</span>
+              </span>
+            ))
+          ) : (
+            <span className="inline-flex items-center border border-warning/25 bg-warning/10 px-2.5 py-1 text-[13px] font-medium text-warning">
+              Unassigned
+            </span>
+          )}
+        </div>
+        <dl className="mt-3 border-t border-border/60">
+          <DetailMetaRow label="Shift ID" value={instance.id} mono />
+          {instance.patternId ? (
+            <DetailMetaRow label="Pattern ID" value={instance.patternId} mono />
+          ) : null}
+          {instance.workSiteId ? (
+            <DetailMetaRow
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="size-3.5" aria-hidden="true" />
+                  Work site
+                </span>
+              }
+              value={instance.workSiteId}
+              mono
+            />
+          ) : null}
+        </dl>
+      </div>
+
+      {/* Sessions + exceptions: always stacked in the side sheet so labels/text never crush */}
+      <div className="flex flex-col gap-4">
+        <div className="min-w-0 rounded-md border border-border/70 p-3 sm:p-4">
+          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <Activity className="size-4 shrink-0" aria-hidden="true" />
             Clock sessions
           </div>
           <div className="mt-3 flex flex-col gap-2">
             {relatedSessions.length > 0 ? (
               relatedSessions.slice(0, 4).map((session) => (
-                <div key={session.id} className="flex items-center justify-between gap-3 border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
+                <div
+                  key={session.id}
+                  className="flex flex-col gap-1 border-b border-border/60 pb-2 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">
-                      {employeeByMembershipId.get(session.employeeMembershipId) ?? shortId(session.employeeMembershipId)}
+                      {employeeByMembershipId.get(session.employeeMembershipId) ??
+                        shortId(session.employeeMembershipId)}
                     </div>
                     <div className="text-[12px] text-muted-foreground tabular-nums">
-                      {formatTime(session.actualClockInAt)} - {session.actualClockOutAt ? formatTime(session.actualClockOutAt) : "open"}
+                      <span className="whitespace-nowrap">{formatTime(session.actualClockInAt)}</span>
+                      {" – "}
+                      <span className="whitespace-nowrap">
+                        {session.actualClockOutAt
+                          ? formatTime(session.actualClockOutAt)
+                          : "open"}
+                      </span>
                     </div>
                   </div>
                   <span className="shrink-0 text-[12px] uppercase text-muted-foreground">
@@ -655,14 +735,16 @@ function ShiftDetailsContent({
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No clock session has matched this shift yet.</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                No clock session has matched this shift yet.
+              </p>
             )}
           </div>
         </div>
 
-        <div className="rounded-md border border-border/70 p-4">
-          <div className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            <AlertTriangle className="size-4" aria-hidden="true" />
+        <div className="min-w-0 rounded-md border border-border/70 p-3 sm:p-4">
+          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
             Policy exceptions
           </div>
           <div className="mt-3 flex flex-col gap-2">
@@ -671,17 +753,20 @@ function ShiftDetailsContent({
                 <ExceptionRow key={exception.id} exception={exception} />
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No open exceptions are tied to this shift.</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                No open exceptions are tied to this shift.
+              </p>
             )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-md border border-border/70 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      {/* Edit times */}
+      <div className="rounded-md border border-border/70 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="text-sm font-medium">Edit times</div>
-            <div className="text-[13px] text-muted-foreground">
+            <div className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">
               Adjust this generated shift without changing the source pattern.
             </div>
           </div>
@@ -689,6 +774,7 @@ function ShiftDetailsContent({
             type="button"
             variant={isEditing ? "secondary" : "outline"}
             size="sm"
+            className="w-full shrink-0 sm:w-auto"
             onClick={() => setIsEditing((value) => !value)}
           >
             <Pencil data-icon="inline-start" />
@@ -707,11 +793,12 @@ function ShiftDetailsContent({
       </div>
 
       {canCancel && (
-        <div className="flex justify-end border-t border-border/70 pt-4">
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="destructive"
             size="sm"
+            className="w-full sm:w-auto"
             onClick={() => dispatch(openCancelInstanceConfirm(instance))}
             disabled={isCancelling}
           >
@@ -766,6 +853,7 @@ function OverrideInstanceForm({
           type="datetime-local"
           value={startAt}
           onChange={(e) => setStartAt(e.target.value)}
+          className="w-full min-w-0"
         />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -775,10 +863,11 @@ function OverrideInstanceForm({
           type="datetime-local"
           value={endAt}
           onChange={(e) => setEndAt(e.target.value)}
+          className="w-full min-w-0"
         />
       </div>
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={isLoading}>
+      <div className="flex flex-col sm:flex-row sm:justify-end">
+        <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={isLoading}>
           {isLoading ? "Saving…" : "Save changes"}
         </Button>
       </div>
@@ -1280,167 +1369,10 @@ function CoverageLedger({
   )
 }
 
-function ReviewQueue({
-  sessions,
-  exceptions,
-}: {
-  sessions: WorkSession[]
-  exceptions: AttendanceException[]
-}) {
-  const dispatch = useAppDispatch()
-  const isReviewing = useAppSelector((s) => s.attendance.status.review === "loading")
-  const reviewConfirm = useAppSelector((s) => s.attendance.confirmSessionReview)
-  const pendingSessions = sessions.filter(
-    (session) =>
-      session.status === WorkSessionStatus.PENDING_REVIEW ||
-      session.status === WorkSessionStatus.CLOCKED_OUT ||
-      session.hasExceptions ||
-      session.reviewStatus === "REQUIRED",
-  )
-  const approvedSessions = sessions.filter((session) => session.status === WorkSessionStatus.APPROVED)
-
-  const handleReview = async (action: "approve" | "reject" | "lock", sessionId: string) => {
-    try {
-      if (action === "approve") await dispatch(approveSession(sessionId)).unwrap()
-      else if (action === "reject") await dispatch(rejectSession(sessionId)).unwrap()
-      else await dispatch(lockSession(sessionId)).unwrap()
-      dispatch(fetchOrgSessions())
-      dispatch(fetchExceptions())
-      dispatch(closeSessionReviewConfirm())
-    } catch (err) {
-      showApiErrorToast(err)
-    }
-  }
-
-  const reviewCopy = {
-    approve: {
-      heading: "Approve session",
-      description: "Approve this work session? The employee's recorded time will be marked as approved.",
-      confirmLabel: "Approve session",
-      confirmVariant: "default" as const,
-    },
-    reject: {
-      heading: "Reject session",
-      description: "Reject this work session? The employee will need to resubmit their time.",
-      confirmLabel: "Reject session",
-      confirmVariant: "destructive" as const,
-    },
-    lock: {
-      heading: "Lock session",
-      description: "Lock this work session? Locked sessions are finalized and can no longer be edited.",
-      confirmLabel: "Lock session",
-      confirmVariant: "destructive" as const,
-    },
-  }
-
-  return (
-    <Card className="review-queue-card min-w-0">
-      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardDescription className="operations-label">Review queue</CardDescription>
-          <CardTitle className="text-base font-medium">Attendance needs attention</CardTitle>
-        </div>
-        <div className="text-[12px] text-muted-foreground tabular-nums">
-          {approvedSessions.length} approved can lock
-        </div>
-      </CardHeader>
-      <CardContent className="grid min-w-0 gap-4">
-        <div className="review-queue-section">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium">Pending sessions</span>
-            <span className="text-[12px] text-muted-foreground tabular-nums">{pendingSessions.length}</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {pendingSessions.length > 0 ? (
-              pendingSessions.slice(0, 5).map((session) => (
-                <div key={session.id} className="review-session-row">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium">{shortId(session.employeeMembershipId)}</div>
-                    <div className="text-[12px] text-muted-foreground tabular-nums">
-                      {formatDateTime(session.actualClockInAt)}
-                    </div>
-                  </div>
-                  <div className="review-session-actions">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => dispatch(openSessionReviewConfirm({ action: "approve", session }))}
-                      disabled={isReviewing || session.status === WorkSessionStatus.APPROVED}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => dispatch(openSessionReviewConfirm({ action: "reject", session }))}
-                      disabled={isReviewing}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">No pending sessions in the latest organization feed.</p>
-                {approvedSessions.slice(0, 3).map((session) => (
-                  <div key={session.id} className="review-session-row">
-                    <span className="truncate text-[13px] font-medium">{shortId(session.employeeMembershipId)}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => dispatch(openSessionReviewConfirm({ action: "lock", session }))}
-                      disabled={isReviewing}
-                    >
-                      Lock
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="review-queue-section">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium">Open exceptions</span>
-            <span className="text-[12px] text-muted-foreground tabular-nums">{exceptions.length}</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {exceptions.length > 0 ? (
-              exceptions.slice(0, 5).map((exception) => (
-                <ExceptionRow key={exception.id} exception={exception} />
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No open exceptions are waiting for review.</p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-      {reviewConfirm.action && reviewConfirm.session && (
-        <ConfirmationModal
-          isOpen={reviewConfirm.isOpen}
-          onClose={() => dispatch(closeSessionReviewConfirm())}
-          onConfirm={() =>
-            handleReview(reviewConfirm.action!, reviewConfirm.session!.id)
-          }
-          isLoading={isReviewing}
-          heading={reviewCopy[reviewConfirm.action].heading}
-          description={reviewCopy[reviewConfirm.action].description}
-          confirmLabel={reviewCopy[reviewConfirm.action].confirmLabel}
-          confirmVariant={reviewCopy[reviewConfirm.action].confirmVariant}
-        />
-      )}
-    </Card>
-  )
-}
-
 const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const patterns = useAppSelector((s) => s.scheduling.patterns)
   const instances = useAppSelector((s) => s.scheduling.instances)
@@ -1487,7 +1419,32 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
   })
   const [includeCancelled, setIncludeCancelled] = React.useState(false)
   const [includeCompleted, setIncludeCompleted] = React.useState(false)
-  const [clockInDay, setClockInDay] = React.useState<Date>(() => new Date())
+
+  const dayParam = searchParams.get("day")
+  const clockInDay = React.useMemo(() => {
+    if (view !== "clock-ins") return new Date()
+    return parseDayParam(dayParam) ?? new Date()
+  }, [view, dayParam])
+
+  // Keep `?day=` in the URL for clock-ins so detail → back restores the filter.
+  React.useEffect(() => {
+    if (view !== "clock-ins") return
+    const iso = toIsoDate(clockInDay)
+    if (searchParams.get("day") === iso) return
+    const next = new URLSearchParams(searchParams)
+    next.set("day", iso)
+    setSearchParams(next, { replace: true })
+  }, [view, clockInDay, searchParams, setSearchParams])
+
+  const setClockInDay = React.useCallback(
+    (date: Date) => {
+      const iso = toIsoDate(date)
+      const next = new URLSearchParams(searchParams)
+      next.set("day", iso)
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   React.useEffect(() => {
     dispatch(fetchPatterns())
@@ -1537,9 +1494,13 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
 
   const openSessionDetail = React.useCallback(
     (session: WorkSession) => {
-      navigate(`/scheduling/clock-ins/${session.id}`)
+      const search = searchParams.toString()
+      navigate({
+        pathname: `/scheduling/clock-ins/${session.id}`,
+        search: search ? `?${search}` : "",
+      })
     },
-    [navigate],
+    [navigate, searchParams],
   )
 
   const handleCalendarRangeChange = React.useCallback((from: string, to: string) => {
@@ -1952,7 +1913,7 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
                 <div className="operations-label">Admin command center</div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Scheduling coverage</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Scan staffing gaps, live sessions, and policy flags before opening setup records.
+                  Scan staffing gaps and shift coverage. Review attendance under Reports → Review.
                 </p>
               </div>
             </div>
@@ -1971,23 +1932,18 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
                   rangeStart={calendarRange.from}
                 />
 
-                <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_28rem]">
-                  <div className="min-w-0">
-                    <CalendarTab
-                      instances={instances}
-                      patterns={patterns}
-                      patternAssignments={patternAssignments}
-                      onRangeChange={handleCalendarRangeChange}
-                      onSelectInstance={setOverrideTarget}
-                      includeCancelled={includeCancelled}
-                      includeCompleted={includeCompleted}
-                      onToggleCancelled={setIncludeCancelled}
-                      onToggleCompleted={setIncludeCompleted}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <ReviewQueue sessions={orgSessions} exceptions={exceptions} />
-                  </div>
+                <div className="min-w-0">
+                  <CalendarTab
+                    instances={instances}
+                    patterns={patterns}
+                    patternAssignments={patternAssignments}
+                    onRangeChange={handleCalendarRangeChange}
+                    onSelectInstance={setOverrideTarget}
+                    includeCancelled={includeCancelled}
+                    includeCompleted={includeCompleted}
+                    onToggleCancelled={setIncludeCancelled}
+                    onToggleCompleted={setIncludeCompleted}
+                  />
                 </div>
               </>
             )}
@@ -2002,7 +1958,9 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
                   <div className="w-56">
                     <DatePicker
                       value={clockInDay}
-                      onChange={(date) => date && setClockInDay(date)}
+                      onChange={(date) => {
+                        if (date) setClockInDay(date)
+                      }}
                       placeholder="Select day"
                     />
                   </div>
@@ -2107,6 +2065,7 @@ const Scheduling = ({ view = "coverage" }: { view?: SchedulingView }) => {
               patterns={patterns}
               patternAssignments={patternAssignments}
               open={overrideTarget !== null}
+              blockDismiss={cancelInstanceConfirm.isOpen}
               onOpenChange={(o) => {
                 if (!o) setOverrideTarget(null)
               }}

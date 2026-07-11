@@ -4,6 +4,7 @@ import {
   type AttendanceException,
   type AttendancePolicyRules,
   type ClockPayload,
+  type ExceptionsQueryParams,
   type HistoryQueryParams,
   type OrgSessionsParams,
   type WorkSession,
@@ -23,6 +24,7 @@ interface AttendanceState {
   dayClockIns: WorkSession[]
   sessionDetail: WorkSessionDetail | null
   exceptions: AttendanceException[]
+  exceptionDetail: AttendanceException | null
   effectivePolicy: AttendancePolicyRules | null
   latestRequests: {
     history?: string
@@ -36,6 +38,8 @@ interface AttendanceState {
     dayClockIns: LoadStatus
     sessionDetail: LoadStatus
     exceptions: LoadStatus
+    exceptionDetail: LoadStatus
+    exceptionAction: LoadStatus
     clockIn: LoadStatus
     clockOut: LoadStatus
     break: LoadStatus
@@ -45,6 +49,11 @@ interface AttendanceState {
     isOpen: boolean
     action: 'approve' | 'reject' | 'lock' | null
     session: WorkSession | null
+  }
+  confirmExceptionAction: {
+    isOpen: boolean
+    action: 'resolve' | 'dismiss' | null
+    exception: AttendanceException | null
   }
 }
 
@@ -56,6 +65,7 @@ const initialState: AttendanceState = {
   dayClockIns: [],
   sessionDetail: null,
   exceptions: [],
+  exceptionDetail: null,
   effectivePolicy: null,
   latestRequests: {},
   status: {
@@ -66,12 +76,15 @@ const initialState: AttendanceState = {
     dayClockIns: 'idle',
     sessionDetail: 'idle',
     exceptions: 'idle',
+    exceptionDetail: 'idle',
+    exceptionAction: 'idle',
     clockIn: 'idle',
     clockOut: 'idle',
     break: 'idle',
     review: 'idle',
   },
   confirmSessionReview: { isOpen: false, action: null, session: null },
+  confirmExceptionAction: { isOpen: false, action: null, exception: null },
 }
 
 export const fetchCurrentSession = createAsyncThunk('attendance/fetchCurrentSession', () =>
@@ -109,8 +122,24 @@ export const fetchSessionDetail = createAsyncThunk('attendance/fetchSessionDetai
   attendanceApi.sessionDetail(id)
 )
 
-export const fetchExceptions = createAsyncThunk('attendance/fetchExceptions', () =>
-  attendanceApi.exceptions()
+export const fetchExceptions = createAsyncThunk(
+  'attendance/fetchExceptions',
+  (params?: ExceptionsQueryParams) => attendanceApi.exceptions(params),
+)
+
+export const fetchExceptionDetail = createAsyncThunk(
+  'attendance/fetchExceptionDetail',
+  (id: string) => attendanceApi.exception(id),
+)
+
+export const resolveException = createAsyncThunk(
+  'attendance/resolveException',
+  (id: string) => attendanceApi.resolveException(id),
+)
+
+export const dismissException = createAsyncThunk(
+  'attendance/dismissException',
+  (id: string) => attendanceApi.dismissException(id),
 )
 
 export const clockIn = createAsyncThunk('attendance/clockIn', (payload: ClockPayload) =>
@@ -164,6 +193,23 @@ const attendanceSlice = createSlice({
     clearSessionDetail: (state) => {
       state.sessionDetail = null
       state.status.sessionDetail = 'idle'
+    },
+    clearExceptionDetail: (state) => {
+      state.exceptionDetail = null
+      state.status.exceptionDetail = 'idle'
+    },
+    openExceptionActionConfirm: (
+      state,
+      action: PayloadAction<{ action: 'resolve' | 'dismiss'; exception: AttendanceException }>,
+    ) => {
+      state.confirmExceptionAction = {
+        isOpen: true,
+        action: action.payload.action,
+        exception: action.payload.exception,
+      }
+    },
+    closeExceptionActionConfirm: (state) => {
+      state.confirmExceptionAction = { isOpen: false, action: null, exception: null }
     },
   },
   extraReducers: (builder) => {
@@ -242,6 +288,38 @@ const attendanceSlice = createSlice({
       })
       .addCase(fetchExceptions.rejected, (state) => { state.status.exceptions = 'error' })
 
+      .addCase(fetchExceptionDetail.pending, (state) => {
+        state.status.exceptionDetail = 'loading'
+        state.exceptionDetail = null
+      })
+      .addCase(fetchExceptionDetail.fulfilled, (state, action) => {
+        state.status.exceptionDetail = 'idle'
+        state.exceptionDetail = action.payload
+      })
+      .addCase(fetchExceptionDetail.rejected, (state) => {
+        state.status.exceptionDetail = 'error'
+      })
+
+      .addCase(resolveException.pending, (state) => { state.status.exceptionAction = 'loading' })
+      .addCase(resolveException.fulfilled, (state, action) => {
+        state.status.exceptionAction = 'idle'
+        state.exceptionDetail = action.payload
+        state.exceptions = state.exceptions.map((item) =>
+          item.id === action.payload.id ? action.payload : item,
+        )
+      })
+      .addCase(resolveException.rejected, (state) => { state.status.exceptionAction = 'error' })
+
+      .addCase(dismissException.pending, (state) => { state.status.exceptionAction = 'loading' })
+      .addCase(dismissException.fulfilled, (state, action) => {
+        state.status.exceptionAction = 'idle'
+        state.exceptionDetail = action.payload
+        state.exceptions = state.exceptions.map((item) =>
+          item.id === action.payload.id ? action.payload : item,
+        )
+      })
+      .addCase(dismissException.rejected, (state) => { state.status.exceptionAction = 'error' })
+
       .addCase(clockIn.pending, (state) => { state.status.clockIn = 'loading' })
       .addCase(clockIn.fulfilled, (state) => { state.status.clockIn = 'idle' })
       .addCase(clockIn.rejected, (state) => { state.status.clockIn = 'error' })
@@ -295,5 +373,8 @@ export const {
   openSessionReviewConfirm,
   closeSessionReviewConfirm,
   clearSessionDetail,
+  clearExceptionDetail,
+  openExceptionActionConfirm,
+  closeExceptionActionConfirm,
 } = attendanceSlice.actions
 export default attendanceSlice.reducer

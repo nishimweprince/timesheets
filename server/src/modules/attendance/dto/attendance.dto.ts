@@ -21,6 +21,20 @@ export class OrgSessionsQueryDto {
   to?: string;
 }
 
+export const EXCEPTION_STATUSES = ['OPEN', 'RESOLVED', 'DISMISSED', 'ALL'] as const;
+export type ExceptionStatusFilter = (typeof EXCEPTION_STATUSES)[number];
+
+export class ExceptionsQueryDto {
+  /** Defaults to OPEN for backward compatibility. Use ALL to list every status. */
+  @IsOptional()
+  @IsIn(EXCEPTION_STATUSES)
+  status?: ExceptionStatusFilter;
+
+  @IsOptional()
+  @IsString()
+  severity?: string;
+}
+
 export class LocationDto {
   @IsLatitude()
   @IsNumber()

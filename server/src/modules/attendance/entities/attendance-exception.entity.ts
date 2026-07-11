@@ -2,6 +2,15 @@ import { Column, Entity, Index } from 'typeorm';
 import { TenantBaseDomain } from '../../../common/entities/tenant-base-domain.entity';
 import { Auditable } from '../../audit/auditable.decorator';
 
+export const AttendanceExceptionStatus = {
+  OPEN: 'OPEN',
+  RESOLVED: 'RESOLVED',
+  DISMISSED: 'DISMISSED'
+} as const;
+
+export type AttendanceExceptionStatus =
+  (typeof AttendanceExceptionStatus)[keyof typeof AttendanceExceptionStatus];
+
 @Auditable()
 @Entity({ name: 'attendance_exceptions' })
 @Index(['organizationId', 'status', 'severity', 'createdAt'])
@@ -24,6 +33,6 @@ export class AttendanceException extends TenantBaseDomain {
   @Column({ type: 'varchar', length: 500 })
   message: string;
 
-  @Column({ type: 'varchar', length: 40, default: 'OPEN' })
+  @Column({ type: 'varchar', length: 40, default: AttendanceExceptionStatus.OPEN })
   status: string;
 }

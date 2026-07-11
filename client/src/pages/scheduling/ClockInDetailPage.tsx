@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -232,11 +232,20 @@ function SessionSummary({ session }: { session: WorkSession }) {
 
 const ClockInDetailPage = () => {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const location = useLocation()
   const dispatch = useAppDispatch()
 
   const detail = useAppSelector((s) => s.attendance.sessionDetail)
   const status = useAppSelector((s) => s.attendance.status.sessionDetail)
   const employees = useAppSelector((s) => s.employeeManagement.employees)
+
+  const backTo = React.useMemo(
+    () => ({
+      pathname: "/scheduling/clock-ins",
+      search: location.search,
+    }),
+    [location.search],
+  )
 
   React.useEffect(() => {
     dispatch(fetchEmployees())
@@ -285,7 +294,7 @@ const ClockInDetailPage = () => {
                   className="-ml-2 mb-2 h-8 px-2 text-muted-foreground"
                   asChild
                 >
-                  <Link to="/scheduling/clock-ins">
+                  <Link to={backTo}>
                     <ArrowLeft className="size-4" />
                     Clock-ins
                   </Link>
@@ -314,7 +323,7 @@ const ClockInDetailPage = () => {
                     : "Work session not found."}
                 </p>
                 <Button variant="outline" size="sm" className="mt-4" asChild>
-                  <Link to="/scheduling/clock-ins">Back to clock-ins</Link>
+                  <Link to={backTo}>Back to clock-ins</Link>
                 </Button>
               </div>
             ) : (
@@ -354,6 +363,15 @@ const ClockInDetailPage = () => {
                     </div>
                   </div>
                 ) : null}
+
+                <div className="flex justify-start border-t border-border pt-4">
+                  <Button variant="outline" asChild>
+                    <Link to={backTo}>
+                      <ArrowLeft className="size-4" />
+                      Back to clock-ins
+                    </Link>
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -39,6 +39,15 @@ export interface WorkSession {
   createdAt: string
 }
 
+export const AttendanceExceptionStatus = {
+  OPEN: 'OPEN',
+  RESOLVED: 'RESOLVED',
+  DISMISSED: 'DISMISSED',
+} as const
+
+export type AttendanceExceptionStatus =
+  (typeof AttendanceExceptionStatus)[keyof typeof AttendanceExceptionStatus]
+
 export interface AttendanceException {
   id: string
   organizationId: string
@@ -50,6 +59,12 @@ export interface AttendanceException {
   message: string
   status: string
   createdAt: string
+  updatedAt?: string
+}
+
+export interface ExceptionsQueryParams {
+  status?: AttendanceExceptionStatus | 'ALL'
+  severity?: string
 }
 
 export interface AttendanceEventDetail {
@@ -193,8 +208,26 @@ export const attendanceApi = {
     return apiRequest<WorkSession>(`/attendance/sessions/${id}/lock`, { method: 'POST' })
   },
 
-  exceptions(): Promise<AttendanceException[]> {
-    return apiRequest<AttendanceException[]>('/attendance/exceptions')
+  exceptions(params?: ExceptionsQueryParams): Promise<AttendanceException[]> {
+    return apiRequest<AttendanceException[]>(
+      `/attendance/exceptions${toQueryString({ ...params })}`,
+    )
+  },
+
+  exception(id: string): Promise<AttendanceException> {
+    return apiRequest<AttendanceException>(`/attendance/exceptions/${id}`)
+  },
+
+  resolveException(id: string): Promise<AttendanceException> {
+    return apiRequest<AttendanceException>(`/attendance/exceptions/${id}/resolve`, {
+      method: 'POST',
+    })
+  },
+
+  dismissException(id: string): Promise<AttendanceException> {
+    return apiRequest<AttendanceException>(`/attendance/exceptions/${id}/dismiss`, {
+      method: 'POST',
+    })
   },
 
   effectivePolicy(): Promise<AttendancePolicyRules> {

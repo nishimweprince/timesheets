@@ -16,6 +16,9 @@ import ClockInDetailPage from '../pages/scheduling/ClockInDetailPage'
 import Team from '../pages/team/Team'
 import Policies from '../pages/policies/Policies'
 import Reports from '../pages/reports/Reports'
+import AttendanceReview from '../pages/reports/AttendanceReview'
+import ExceptionQueuePage from '../pages/reports/ExceptionQueuePage'
+import ExceptionDetailPage from '../pages/reports/ExceptionDetailPage'
 import Profile from '../pages/profile/Profile'
 
 const Router = () => {
@@ -42,6 +45,10 @@ const Router = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/timesheets" element={<Timesheets />} />
           <Route path="/profile" element={<Profile />} />
+          {/* Attendance review + exception queue: page access for managers; mutations enforced by API. */}
+          <Route path="/reports/review" element={<AttendanceReview />} />
+          <Route path="/reports/exception-queue" element={<ExceptionQueuePage />} />
+          <Route path="/reports/exception-queue/:exceptionId" element={<ExceptionDetailPage />} />
           <Route element={<PermissionGuard permission="shift.create" />}>
             <Route path="/scheduling" element={<Scheduling view="coverage" />} />
             <Route path="/scheduling/clock-ins" element={<Scheduling view="clock-ins" />} />

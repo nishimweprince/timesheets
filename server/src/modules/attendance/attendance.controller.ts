@@ -3,7 +3,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { AuthenticatedRequest, RequestUser } from '../../common/types/authenticated-request';
-import { ClockDto, HistoryQueryDto, OrgSessionsQueryDto } from './dto/attendance.dto';
+import { ClockDto, ExceptionsQueryDto, HistoryQueryDto, OrgSessionsQueryDto } from './dto/attendance.dto';
 import { AttendanceEventType } from './entities/attendance-event.entity';
 import { AttendanceService } from './attendance.service';
 
@@ -98,7 +98,27 @@ export class AttendanceController {
 
   @Get('exceptions')
   @Permissions('attendance.read.organization')
-  exceptions(@CurrentUser() user: RequestUser) {
-    return this.attendanceService.exceptionsForOrg(user);
+  exceptions(@CurrentUser() user: RequestUser, @Query() query: ExceptionsQueryDto) {
+    return this.attendanceService.exceptionsForOrg(user, query);
+  }
+
+  @Get('exceptions/:id')
+  @Permissions('attendance.read.organization')
+  exception(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.exceptionById(user, id);
+  }
+
+  @Post('exceptions/:id/resolve')
+  @Permissions('attendance.approve')
+  @ResponseMessage('Exception resolved')
+  resolveException(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.resolveException(user, id);
+  }
+
+  @Post('exceptions/:id/dismiss')
+  @Permissions('attendance.approve')
+  @ResponseMessage('Exception dismissed')
+  dismissException(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.attendanceService.dismissException(user, id);
   }
 }

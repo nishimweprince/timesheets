@@ -58,12 +58,16 @@ export class CloudinaryService {
     };
   }
 
+  // Delivery type must match how assets are uploaded. The client posts to
+  // /image/upload without type=authenticated, so resources are stored as
+  // type "upload". Using "authenticated" here produces 401/404 URLs.
+  // Future hardening: upload as authenticated and switch this to match.
   signedViewUrl(publicId: string): string {
     this.ensureConfigured();
     const folder = this.config.getOrThrow<string>('CLOUDINARY_UPLOAD_FOLDER');
     return cloudinary.url(`${folder}/${publicId}`, {
       resource_type: 'image',
-      type: 'authenticated',
+      type: 'upload',
       sign_url: true,
       secure: true,
       expires_at: Math.floor(Date.now() / 1000) + 300

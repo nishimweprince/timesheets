@@ -1,5 +1,14 @@
 # React + TypeScript + Vite
 
+## Contributing UI code
+
+Build reusable-first: check `src/components/reusable/` and `src/lib/format.ts`
+before adding page-local UI or formatting helpers. Keep genuinely shared pieces in
+those locations, and co-locate feature-specific dialogs, forms, hooks, and table
+columns under `src/pages/<feature>/`. App-authored page and component files must
+stay at or below 400 lines; vendor-style files in `src/components/ui/` and the
+shared `DataTable` are exempt.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

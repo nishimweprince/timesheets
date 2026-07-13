@@ -1,4 +1,6 @@
 export { DataTable, derivePageCount } from "./DataTable"
+export { RowActions } from "./RowActions"
 export { resolveEffectivePagination } from "./resolveDataTablePagination"
+export type { RowAction, RowActionsProps } from "./RowActions"
 export type { DataTablePagination, DataTablePaginationInfo, DataTableProps } from "./DataTable"
 export type { ResolveEffectivePaginationInput, EffectivePaginationResult } from "./resolveDataTablePagination"

@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agents
+.agents/*
+.claude/*
+.cursor/*
+.mcp/*
+.bob/*

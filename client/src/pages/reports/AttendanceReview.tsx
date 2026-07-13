@@ -6,7 +6,9 @@ import { Link } from "react-router-dom"
 import { CheckCircle2Icon, LockIcon, XCircleIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import StatusBadge from "@/components/reusable/badges/StatusBadge"
 import ConfirmationModal from "@/components/reusable/cards/ConfirmationModal"
+import { PageHeader } from "@/components/reusable/layout"
 import { DataTable } from "@/components/reusable/tables"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
@@ -16,6 +18,7 @@ import {
   type WorkSession,
 } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
+import { employeeName, formatDateTime, shortId } from "@/lib/format"
 import {
   approveSession,
   closeSessionReviewConfirm,
@@ -27,25 +30,6 @@ import {
 } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-
-function shortId(id: string) {
-  return id.slice(0, 8)
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function employeeName(employee: { firstName: string; lastName: string; email: string }) {
-  const name = `${employee.firstName} ${employee.lastName}`.trim()
-  return name || employee.email
-}
 
 function isPendingSession(session: WorkSession) {
   return (
@@ -159,9 +143,18 @@ const AttendanceReview = () => {
         accessorKey: "status",
         header: "Status",
         cell: ({ getValue }) => (
-          <span className="inline-flex h-6 items-center border border-border px-2 text-[12px] uppercase text-muted-foreground">
-            {getValue<WorkSessionStatus>().replaceAll("_", " ")}
-          </span>
+          <StatusBadge
+            status={getValue<WorkSessionStatus>()}
+            toneMap={{
+              [WorkSessionStatus.OPEN]: "outline",
+              [WorkSessionStatus.CLOCKED_OUT]: "outline",
+              [WorkSessionStatus.PENDING_REVIEW]: "outline",
+              [WorkSessionStatus.APPROVED]: "outline",
+              [WorkSessionStatus.REJECTED]: "outline",
+              [WorkSessionStatus.LOCKED]: "outline",
+              [WorkSessionStatus.CANCELLED]: "outline",
+            }}
+          />
         ),
         meta: { width: "10rem", cellClassName: "py-3" },
       },
@@ -296,12 +289,12 @@ const AttendanceReview = () => {
             <div className="operations-page-header">
               <div>
                 <div className="operations-label">Attendance</div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                  Review queue
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Approve, reject, or lock work sessions. Policy flags live under Exception queue.
-                </p>
+                <PageHeader
+                  title="Review queue"
+                  description="Approve, reject, or lock work sessions. Policy flags live under Exception queue."
+                  titleClassName="text-xl"
+                  descriptionClassName="text-sm"
+                />
               </div>
             </div>
 

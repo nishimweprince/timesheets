@@ -15,6 +15,8 @@ import {
 } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import StatusBadge from "@/components/reusable/badges/StatusBadge"
+import { PageHeader } from "@/components/reusable/layout"
 import Input from "@/components/reusable/inputs/Input"
 import { SiteHeader } from "@/components/site-header"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -139,14 +141,11 @@ const Profile = () => {
               <p className="text-[13px] uppercase tracking-[0.12em] text-muted-foreground">
                 Account
               </p>
-              <div className="flex flex-col gap-1.5">
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                  Profile
-                </h1>
-                <p className="max-w-2xl text-sm text-muted-foreground">
-                  Review your account identity, organization access, and password settings.
-                </p>
-              </div>
+              <PageHeader
+                title="Profile"
+                description="Review your account identity, organization access, and password settings."
+                descriptionClassName="max-w-2xl text-sm"
+              />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -170,9 +169,13 @@ const Profile = () => {
                         <span className="inline-flex h-6 items-center border border-primary/20 bg-primary/5 px-2 text-[12px] font-medium text-primary">
                           {roleLabel}
                         </span>
-                        <span className="inline-flex h-6 items-center border px-2 text-[13px] font-medium capitalize text-muted-foreground">
-                          {membershipStatus}
-                        </span>
+                        <StatusBadge
+                          status={user?.membershipStatus ?? "unknown"}
+                          toneMap={{ ACTIVE: "success", PENDING: "warning", INACTIVE: "muted" }}
+                          label={membershipStatus}
+                          uppercase={false}
+                          className="text-[13px] font-medium capitalize"
+                        />
                       </div>
                     </div>
                   </div>

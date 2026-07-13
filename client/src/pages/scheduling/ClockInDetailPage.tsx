@@ -5,6 +5,7 @@ import { Link, useLocation, useParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { PageHeader } from "@/components/reusable/layout"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import {
   formatDeviceClass,
   formatDeviceSummary,
 } from "@/lib/device"
+import { shortId, formatDateTime, formatDuration, employeeName } from "@/lib/format"
 import {
   type AttendanceEventDetail,
   type WorkSession,
@@ -23,32 +25,6 @@ import {
 } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-
-function shortId(id: string) {
-  return id.slice(0, 8)
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function formatDuration(startIso: string, endIso: string) {
-  const minutes = Math.max(
-    0,
-    Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000),
-  )
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  if (hours === 0) return `${remainingMinutes}m`
-  if (remainingMinutes === 0) return `${hours}h`
-  return `${hours}h ${remainingMinutes}m`
-}
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -61,16 +37,6 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 function eventTypeLabel(type: string) {
   return type.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
-}
-
-function employeeNameFromParts(employee: {
-  firstName?: string | null
-  lastName?: string | null
-  email?: string | null
-}): string {
-  const joined = [employee.firstName, employee.lastName].filter(Boolean).join(" ")
-  if (joined) return joined
-  return employee.email ?? "Unknown"
 }
 
 function DeviceBlock({ device }: { device: Record<string, unknown> | null }) {
@@ -263,7 +229,7 @@ const ClockInDetailPage = () => {
   const employeeLabel = React.useMemo(() => {
     if (!session) return null
     const employee = employees.find((e) => e.membershipId === session.employeeMembershipId)
-    if (employee) return employeeNameFromParts(employee)
+    if (employee) return employeeName(employee)
     return shortId(session.employeeMembershipId)
   }, [employees, session])
 
@@ -300,14 +266,14 @@ const ClockInDetailPage = () => {
                   </Link>
                 </Button>
                 <div className="operations-label">Attendance</div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                  Clock-in detail
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {employeeLabel
+                <PageHeader
+                  title="Clock-in detail"
+                  description={employeeLabel
                     ? `Capture detail for ${employeeLabel}`
                     : "Location, device, and policy flags for this work session."}
-                </p>
+                  titleClassName="text-xl"
+                  descriptionClassName="text-sm"
+                />
               </div>
             </div>
 

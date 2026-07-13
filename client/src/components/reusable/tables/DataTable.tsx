@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import EmptyState from "@/components/reusable/layout/EmptyState"
 import { derivePageCount } from "./resolveDataTablePagination"
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -427,14 +428,12 @@ function DataTable<TData, TValue>({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columnCount} className="px-4 py-12 text-center">
-                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
-                      <div className="text-sm font-medium text-foreground">{emptyTitle}</div>
-                      {emptyDescription ? (
-                        <div className="text-sm text-muted-foreground">{emptyDescription}</div>
-                      ) : null}
-                      {emptyAction ? <div className="pt-2">{emptyAction}</div> : null}
-                    </div>
+                  <td colSpan={columnCount} className="px-4">
+                    <EmptyState
+                      title={emptyTitle}
+                      description={emptyDescription}
+                      action={emptyAction}
+                    />
                   </td>
                 </tr>
               )}

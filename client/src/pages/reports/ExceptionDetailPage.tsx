@@ -6,12 +6,15 @@ import { ArrowLeft, CheckCircle2Icon, XCircleIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import StatusBadge from "@/components/reusable/badges/StatusBadge"
 import ConfirmationModal from "@/components/reusable/cards/ConfirmationModal"
+import { PageHeader } from "@/components/reusable/layout"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AttendanceExceptionStatus } from "@/lib/api/attendance.api"
 import { showApiErrorToast } from "@/lib/api/errors"
+import { employeeName, formatDateTime, shortId } from "@/lib/format"
 import {
   clearExceptionDetail,
   closeExceptionActionConfirm,
@@ -22,25 +25,6 @@ import {
 } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-
-function shortId(id: string) {
-  return id.slice(0, 8)
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function employeeName(employee: { firstName: string; lastName: string; email: string }) {
-  const name = `${employee.firstName} ${employee.lastName}`.trim()
-  return name || employee.email
-}
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -158,14 +142,16 @@ const ExceptionDetailPage = () => {
                 </Link>
               </Button>
               <div className="operations-label">Attendance</div>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                Exception detail
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {employeeLabel
+              <PageHeader
+                title="Exception detail"
+                description={
+                  employeeLabel
                   ? `Policy flag for ${employeeLabel}`
-                  : "Review and resolve this attendance policy exception."}
-              </p>
+                  : "Review and resolve this attendance policy exception."
+                }
+                titleClassName="text-xl"
+                descriptionClassName="text-sm"
+              />
             </div>
 
             {isLoading ? (
@@ -186,9 +172,14 @@ const ExceptionDetailPage = () => {
                     <div className="text-[13px] font-medium text-foreground">
                       {exception.code.replaceAll("_", " ")}
                     </div>
-                    <span className="inline-flex h-6 items-center border border-border px-2 text-[12px] uppercase text-muted-foreground">
-                      {exception.status}
-                    </span>
+                    <StatusBadge
+                      status={exception.status}
+                      toneMap={{
+                        [AttendanceExceptionStatus.OPEN]: "outline",
+                        [AttendanceExceptionStatus.RESOLVED]: "outline",
+                        [AttendanceExceptionStatus.DISMISSED]: "outline",
+                      }}
+                    />
                   </div>
                   <dl>
                     <DetailRow label="Message" value={exception.message} />

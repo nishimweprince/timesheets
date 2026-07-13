@@ -5,7 +5,9 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import StatusBadge from "@/components/reusable/badges/StatusBadge"
 import Select from "@/components/reusable/inputs/Select"
+import { PageHeader } from "@/components/reusable/layout"
 import { DataTable } from "@/components/reusable/tables"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -13,28 +15,10 @@ import {
   AttendanceExceptionStatus,
   type AttendanceException,
 } from "@/lib/api/attendance.api"
+import { employeeName, formatDateTime, shortId } from "@/lib/format"
 import { fetchExceptions } from "@/states/features/attendance.slice"
 import { fetchEmployees } from "@/states/features/employee-management.slice"
 import { useAppDispatch, useAppSelector } from "@/states/store/hooks.state"
-
-function shortId(id: string) {
-  return id.slice(0, 8)
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function employeeName(employee: { firstName: string; lastName: string; email: string }) {
-  const name = `${employee.firstName} ${employee.lastName}`.trim()
-  return name || employee.email
-}
 
 const STATUS_OPTIONS = [
   { label: "Open", value: AttendanceExceptionStatus.OPEN },
@@ -121,9 +105,14 @@ const ExceptionQueuePage = () => {
         accessorKey: "status",
         header: "Status",
         cell: ({ getValue }) => (
-          <span className="inline-flex h-6 items-center border border-border px-2 text-[12px] uppercase text-muted-foreground">
-            {getValue<string>()}
-          </span>
+          <StatusBadge
+            status={getValue<string>()}
+            toneMap={{
+              [AttendanceExceptionStatus.OPEN]: "outline",
+              [AttendanceExceptionStatus.RESOLVED]: "outline",
+              [AttendanceExceptionStatus.DISMISSED]: "outline",
+            }}
+          />
         ),
         meta: { width: "8rem", cellClassName: "py-3" },
       },
@@ -180,13 +169,12 @@ const ExceptionQueuePage = () => {
             <div className="operations-page-header">
               <div>
                 <div className="operations-label">Attendance</div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                  Exception queue
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Review open policy flags and resolve or dismiss them. Analytics export stays under
-                  Reports → Exceptions.
-                </p>
+                <PageHeader
+                  title="Exception queue"
+                  description="Review open policy flags and resolve or dismiss them. Analytics export stays under Reports → Exceptions."
+                  titleClassName="text-xl"
+                  descriptionClassName="text-sm"
+                />
               </div>
             </div>
 
